@@ -5,6 +5,7 @@ import { useDuckDB, R2_BASE_URL } from "./context";
 import { RegulationsDataTypes } from "@/lib/db/models";
 import { TOPIC_MAPPINGS, type TopicKey } from "@/lib/feedFilters";
 import type { FederalRegisterDoc, FRFilters } from "@/lib/fr/types";
+import { stripQuotes } from "@/lib/utils/fieldFormat";
 
 /** Default row limit to prevent OOM in the browser */
 const DEFAULT_LIMIT = 1000;
@@ -41,15 +42,6 @@ const feedSummaryRef = () => {
 const federalRegisterRef = () => {
   return `read_parquet('${R2_BASE_URL}/federal_register.parquet')`;
 };
-
-/**
- * Strip surrounding quotes from a parquet VARCHAR (the data sometimes carries
- * literal '"foo"' values for legacy reasons).
- */
-function stripQuotes(s: unknown): string {
-  if (s == null) return '';
-  return String(s).replace(/^"|"$/g, '');
-}
 
 /**
  * Normalize one row from federal_register.parquet into the camel-cased
@@ -699,6 +691,331 @@ export function useDuckDBService() {
     [runQuery, isReady]
   );
 
+  /* ───────────────────── /lab (experimental) queries ───────────────────── */
+
+  /**
+   * Per-month document counts for the agency-activity small multiples on /lab.
+   * Filters on document_type so the panel can show e.g. only "Rule" rows
+   * against admin-transition bands.
+   */
+  const getDocumentCountsByAgencyMonth = useCallback(
+    async (
+      documentTypes: string[],
+      since: string = '2014-01-01',
+      agencyCodes?: string[]
+    ): Promise<{ agency_code: string; document_type: string; month: string; n: number }[]> => {
+      if (!isReady) throw new Error('DuckDB not ready');
+
+      const typesIn = documentTypes.map(t => `'${sqlStr(t)}'`).join(',');
+      const conditions = [
+        `document_type IN (${typesIn})`,
+        `TRY_CAST(posted_date AS DATE) >= DATE '${since}'`,
+      ];
+      if (agencyCodes && agencyCodes.length > 0) {
+        const list = agencyCodes.map(a => `'${sqlStr(a.toUpperCase())}'`).join(',');
+        conditions.push(`agency_code IN (${list})`);
+      }
+
+      const query = `
+        SELECT agency_code,
+               document_type,
+               strftime(date_trunc('month', TRY_CAST(posted_date AS DATE)), '%Y-%m-%d') AS month,
+               COUNT(*) AS n
+        FROM ${parquetRef('documents' as RegulationsDataTypes)}
+        WHERE ${conditions.join(' AND ')}
+        GROUP BY 1, 2, 3
+        ORDER BY 1, 2, 3
+      `;
+      const rows = await runQuery<{ agency_code: string; document_type: string; month: string; n: number }>(query);
+      return rows.map(r => ({ ...r, n: Number(r.n) }));
+    },
+    [runQuery, isReady]
+  );
+
+  /**
+   * Volume curve + form-letter clusters for a single docket — drives /lab
+   * Panel 2 (comment orchestration). Three rolled-up shapes returned together
+   * so the panel does one round-trip.
+   */
+  const getCommentVolumeAndClusters = useCallback(
+    async (
+      docketId: string
+    ): Promise<{
+      docketTitle: string;
+      docketAbstract: string;
+      commentStartDate: string | null;
+      commentEndDate: string | null;
+      totals: { total: number; unique: number; empty: number };
+      volumeByDay: { day: string; n: number }[];
+      clusters: { hash: string; n: number; sample: string; firstDay: string; lastDay: string }[];
+    }> => {
+      if (!isReady) throw new Error('DuckDB not ready');
+
+      const cleanId = docketId.replace(/^"|"$/g, '').toUpperCase();
+      const agency = cleanId.split('-')[0];
+
+      const commentsSource = await buildCommentsSource(agency, cleanId);
+
+      // feed_summary carries the pre-joined comment_end_date from the
+      // Proposed Rule document and is the authoritative answer for "when
+      // did the comment period close." We fall back to dockets.parquet for
+      // metadata if the docket isn't in feed_summary.
+      const metaRows = await runQuery<{ title: string; abstract: string; comment_end_date: string | null }>(`
+        WITH fs AS (
+          SELECT title, abstract, comment_end_date
+          FROM ${feedSummaryRef()}
+          WHERE docket_id = '${sqlStr(cleanId)}'
+          LIMIT 1
+        ),
+        dk AS (
+          SELECT title, abstract, NULL AS comment_end_date
+          FROM ${parquetRef('dockets' as RegulationsDataTypes)}
+          WHERE docket_id = '${sqlStr(cleanId)}'
+          LIMIT 1
+        )
+        SELECT * FROM fs
+        UNION ALL
+        SELECT * FROM dk WHERE NOT EXISTS (SELECT 1 FROM fs)
+        LIMIT 1
+      `);
+      const docketTitle = stripQuotes(metaRows[0]?.title);
+      const docketAbstract = stripQuotes(metaRows[0]?.abstract);
+      const commentEndDate = metaRows[0]?.comment_end_date
+        ? stripQuotes(metaRows[0].comment_end_date)
+        : null;
+
+      if (!commentsSource) {
+        return {
+          docketTitle,
+          docketAbstract,
+          commentEndDate,
+          totals: { total: 0, unique: 0, empty: 0 },
+          volumeByDay: [],
+          clusters: [],
+        };
+      }
+
+      const [totals, volumeByDay, clusters, startDateRows] = await Promise.all([
+        runQuery<{ total: number; unique: number; empty: number }>(`
+          SELECT COUNT(*) AS total,
+                 COUNT(DISTINCT md5(LOWER(TRIM(comment)))) AS unique,
+                 COUNT(*) FILTER (WHERE comment IS NULL OR TRIM(comment) = '') AS empty
+          FROM ${commentsSource}
+          WHERE docket_id = '${sqlStr(cleanId)}'
+        `),
+        runQuery<{ day: string; n: number }>(`
+          SELECT strftime(date_trunc('day', TRY_CAST(posted_date AS DATE)), '%Y-%m-%d') AS day,
+                 COUNT(*) AS n
+          FROM ${commentsSource}
+          WHERE docket_id = '${sqlStr(cleanId)}'
+            AND TRY_CAST(posted_date AS DATE) IS NOT NULL
+          GROUP BY 1
+          ORDER BY 1
+        `),
+        runQuery<{ hash: string; n: number; sample: string; firstDay: string; lastDay: string }>(`
+          SELECT md5(LOWER(TRIM(comment))) AS hash,
+                 COUNT(*) AS n,
+                 LEFT(ANY_VALUE(comment), 240) AS sample,
+                 strftime(MIN(TRY_CAST(posted_date AS DATE)), '%Y-%m-%d') AS firstDay,
+                 strftime(MAX(TRY_CAST(posted_date AS DATE)), '%Y-%m-%d') AS lastDay
+          FROM ${commentsSource}
+          WHERE docket_id = '${sqlStr(cleanId)}'
+            AND comment IS NOT NULL AND TRIM(comment) <> ''
+          GROUP BY 1
+          ORDER BY n DESC
+          LIMIT 20
+        `),
+        runQuery<{ start_date: string | null }>(`
+          SELECT strftime(MIN(TRY_CAST(comment_start_date AS DATE)), '%Y-%m-%d') AS start_date
+          FROM ${parquetRef('documents' as RegulationsDataTypes)}
+          WHERE docket_id = '${sqlStr(cleanId)}'
+            AND comment_start_date IS NOT NULL
+        `),
+      ]);
+
+      const commentStartDate = startDateRows[0]?.start_date
+        ? stripQuotes(startDateRows[0].start_date)
+        : null;
+
+      return {
+        docketTitle,
+        docketAbstract,
+        commentStartDate,
+        commentEndDate,
+        totals: {
+          total: Number(totals[0]?.total ?? 0),
+          unique: Number(totals[0]?.unique ?? 0),
+          empty: Number(totals[0]?.empty ?? 0),
+        },
+        volumeByDay: volumeByDay.map(r => ({ day: r.day, n: Number(r.n) })),
+        clusters: clusters.map(r => ({ ...r, n: Number(r.n), sample: stripQuotes(r.sample) })),
+      };
+    },
+    [runQuery, isReady, buildCommentsSource]
+  );
+
+  /**
+   * Rulemaking lifecycles: per-docket Proposed→Rule pairing for /lab Panel 3.
+   * Returns:
+   *   - summary: per-agency percentile stats of completed rulemaking durations
+   *   - completedSample: a bounded per-agency sample (fastest N + slowest N + N random middle) for the strip plot
+   *   - stuck: the oldest Proposed Rules with no matching Rule across the requested agencies
+   */
+  const getRulemakingLifecycles = useCallback(
+    async (
+      agencyCodes: string[],
+      samplePerAgency: number = 80,
+      limitStuck: number = 20
+    ): Promise<{
+      summary: { agency_code: string; n: number; p10: number; p25: number; p50: number; p75: number; p90: number; min: number; max: number }[];
+      completedSample: { docket_id: string; agency_code: string; title: string; proposed_date: string; final_date: string; days: number }[];
+      stuck: { docket_id: string; agency_code: string; title: string; proposed_date: string; days_open: number }[];
+    }> => {
+      if (!isReady) throw new Error('DuckDB not ready');
+      if (agencyCodes.length === 0) return { summary: [], completedSample: [], stuck: [] };
+
+      const list = agencyCodes.map(a => `'${sqlStr(a.toUpperCase())}'`).join(',');
+
+      const pairsCTE = `
+        WITH props AS (
+          SELECT docket_id, agency_code,
+                 ANY_VALUE(title) AS title,
+                 MIN(TRY_CAST(posted_date AS DATE)) AS proposed_date
+          FROM ${parquetRef('documents' as RegulationsDataTypes)}
+          WHERE document_type = 'Proposed Rule' AND agency_code IN (${list})
+          GROUP BY 1, 2
+        ),
+        finals AS (
+          SELECT docket_id, MIN(TRY_CAST(posted_date AS DATE)) AS final_date
+          FROM ${parquetRef('documents' as RegulationsDataTypes)}
+          WHERE document_type = 'Rule' AND agency_code IN (${list})
+          GROUP BY 1
+        ),
+        pairs AS (
+          SELECT p.docket_id, p.agency_code, p.title, p.proposed_date, f.final_date,
+                 date_diff('day', p.proposed_date, f.final_date) AS days
+          FROM props p
+          JOIN finals f USING (docket_id)
+          WHERE p.proposed_date IS NOT NULL
+            AND f.final_date IS NOT NULL
+            AND f.final_date >= p.proposed_date
+            AND p.proposed_date >= DATE '2010-01-01'
+        )
+      `;
+
+      const summary = await runQuery<{
+        agency_code: string; n: number;
+        p10: number; p25: number; p50: number; p75: number; p90: number;
+        min: number; max: number;
+      }>(`
+        ${pairsCTE}
+        SELECT agency_code,
+               COUNT(*) AS n,
+               quantile_cont(days, 0.10) AS p10,
+               quantile_cont(days, 0.25) AS p25,
+               quantile_cont(days, 0.50) AS p50,
+               quantile_cont(days, 0.75) AS p75,
+               quantile_cont(days, 0.90) AS p90,
+               MIN(days) AS min,
+               MAX(days) AS max
+        FROM pairs
+        GROUP BY agency_code
+        ORDER BY n DESC
+      `);
+
+      const completedSample = await runQuery<{
+        docket_id: string; agency_code: string; title: string;
+        proposed_date: string; final_date: string; days: number;
+      }>(`
+        ${pairsCTE},
+        ranked AS (
+          SELECT *,
+                 ROW_NUMBER() OVER (PARTITION BY agency_code ORDER BY days) AS r_low,
+                 ROW_NUMBER() OVER (PARTITION BY agency_code ORDER BY days DESC) AS r_high,
+                 (hash(docket_id) % 100) AS bucket
+          FROM pairs
+        )
+        SELECT docket_id, agency_code, title,
+               strftime(proposed_date, '%Y-%m-%d') AS proposed_date,
+               strftime(final_date,    '%Y-%m-%d') AS final_date,
+               days
+        FROM ranked
+        WHERE r_low <= ${samplePerAgency / 3}
+           OR r_high <= ${samplePerAgency / 3}
+           OR bucket < ${samplePerAgency / 3}
+      `);
+
+      // "Stuck" window: proposed at least 18 months ago (long enough that a
+      // normal NPRM should have finalized) but not older than 8 years
+      // (pre-2018 the parquet has thin / inconsistent Final Rule coverage
+      // and pre-RIN-tracking cross-docket linkage; older "no matching Rule"
+      // results are dominated by data artifacts rather than genuine
+      // abandonments). Within that window we stratify by age tier so the
+      // displayed sample spreads across years instead of clustering on the
+      // exact boundary date.
+      const stuckPerTier = Math.max(2, Math.floor(limitStuck / 3));
+      const stuck = await runQuery<{
+        docket_id: string; agency_code: string; title: string; proposed_date: string; days_open: number;
+      }>(`
+        WITH props AS (
+          SELECT docket_id, agency_code,
+                 ANY_VALUE(title) AS title,
+                 MIN(TRY_CAST(posted_date AS DATE)) AS proposed_date
+          FROM ${parquetRef('documents' as RegulationsDataTypes)}
+          WHERE document_type = 'Proposed Rule' AND agency_code IN (${list})
+          GROUP BY 1, 2
+        ),
+        finals AS (
+          SELECT DISTINCT docket_id
+          FROM ${parquetRef('documents' as RegulationsDataTypes)}
+          WHERE document_type = 'Rule'
+        ),
+        candidates AS (
+          SELECT p.docket_id, p.agency_code, p.title, p.proposed_date,
+                 date_diff('day', p.proposed_date, CURRENT_DATE) AS days_open,
+                 CASE
+                   WHEN p.proposed_date >= CURRENT_DATE - INTERVAL '3 years' THEN 'recent'
+                   WHEN p.proposed_date >= CURRENT_DATE - INTERVAL '5 years' THEN 'mid'
+                   ELSE 'old'
+                 END AS tier
+          FROM props p
+          LEFT JOIN finals f USING (docket_id)
+          WHERE f.docket_id IS NULL
+            AND p.proposed_date IS NOT NULL
+            AND p.proposed_date <= CURRENT_DATE - INTERVAL '18 months'
+            AND p.proposed_date >= CURRENT_DATE - INTERVAL '8 years'
+        ),
+        ranked AS (
+          SELECT *,
+                 ROW_NUMBER() OVER (PARTITION BY tier ORDER BY hash(docket_id)) AS rn
+          FROM candidates
+        )
+        SELECT docket_id, agency_code, title,
+               strftime(proposed_date, '%Y-%m-%d') AS proposed_date,
+               days_open
+        FROM ranked
+        WHERE rn <= ${stuckPerTier}
+        ORDER BY days_open DESC
+      `);
+
+      return {
+        summary: summary.map(r => ({
+          ...r,
+          n: Number(r.n), p10: Number(r.p10), p25: Number(r.p25),
+          p50: Number(r.p50), p75: Number(r.p75), p90: Number(r.p90),
+          min: Number(r.min), max: Number(r.max),
+        })),
+        completedSample: completedSample.map(r => ({
+          ...r, title: stripQuotes(r.title), days: Number(r.days),
+        })),
+        stuck: stuck.map(r => ({
+          ...r, title: stripQuotes(r.title), days_open: Number(r.days_open),
+        })),
+      };
+    },
+    [runQuery, isReady]
+  );
+
   return {
     getData,
     getDataCount,
@@ -717,6 +1034,9 @@ export function useDuckDBService() {
     getRecentFederalRegister,
     getFRPublicationsForDocket,
     searchFederalRegister,
+    getDocumentCountsByAgencyMonth,
+    getCommentVolumeAndClusters,
+    getRulemakingLifecycles,
     isReady,
   };
 }
