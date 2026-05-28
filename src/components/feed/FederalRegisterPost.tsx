@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { ExternalLink, FileText, Clock } from 'lucide-react';
 import { timeAgo } from '@/lib/agencyMetadata';
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
 import type { FederalRegisterDoc } from '@/lib/fr/types';
 
 interface FederalRegisterPostProps {
@@ -54,16 +56,14 @@ export function FederalRegisterPost({ doc }: FederalRegisterPostProps) {
     : null;
 
   return (
-    <article className="card p-4 hover:border-[var(--accent-primary)]/40 transition-colors">
+    <Card asChild className="p-4 hover:border-[var(--accent-primary)]/40 transition-colors">
+      <article>
       {/* Header strip: agencies · type · date */}
       <div className="flex items-center gap-2 mb-1.5 text-xs text-[var(--muted)] flex-wrap">
         {agencies.slice(0, 3).map((slug) => (
-          <span
-            key={slug}
-            className="font-mono-id px-1.5 py-0.5 rounded bg-[var(--surface-raised)] text-[var(--accent-primary)]"
-          >
+          <Badge key={slug} variant="code" size="xs" className="!text-[var(--accent-primary)]">
             {slug}
-          </span>
+          </Badge>
         ))}
         {agencies.length > 3 && (
           <span className="text-[var(--muted)]">+{agencies.length - 3}</span>
@@ -121,13 +121,11 @@ export function FederalRegisterPost({ doc }: FederalRegisterPostProps) {
           {doc.docketIds.slice(0, 4).map((d) => {
             const agency = d.split('-')[0] || '';
             return (
-              <Link
-                key={d}
-                href={`/sr/${agency}/${encodeURIComponent(d)}`}
-                className="text-xs px-1.5 py-0.5 rounded bg-[var(--surface-raised)] font-mono-id text-[var(--accent-primary)] hover:underline"
-              >
-                {d}
-              </Link>
+              <Badge key={d} variant="code" size="xs" className="!text-[var(--accent-primary)] hover:underline cursor-pointer" asChild>
+                <Link href={`/sr/${agency}/${encodeURIComponent(d)}`}>
+                  {d}
+                </Link>
+              </Badge>
             );
           })}
           {doc.docketIds.length > 4 && (
@@ -162,6 +160,7 @@ export function FederalRegisterPost({ doc }: FederalRegisterPostProps) {
           <span className="ml-auto">Signed {timeAgo(doc.signingDate)}</span>
         )}
       </div>
-    </article>
+      </article>
+    </Card>
   );
 }

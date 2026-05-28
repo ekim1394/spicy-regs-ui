@@ -2,9 +2,11 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { Link2, ChevronDown, Loader2, FileText, Download } from 'lucide-react';
-import { stringToColor, getInitials, timeAgo } from '@/lib/agencyMetadata';
+import { timeAgo } from '@/lib/agencyMetadata';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
 import { stripQuotes, decodeHtml } from '@/lib/utils/fieldFormat';
+import { Avatar } from '@/components/ui/Avatar';
+import { Badge } from '@/components/ui/Badge';
 
 interface ThreadedCommentsProps {
   docketId: string;
@@ -74,8 +76,6 @@ function CommentItem({ data }: { data: CommentItemData }) {
     || 'Anonymous';
 
   const isOrg = !!data.organization;
-  const avatarColor = stringToColor(authorName);
-  const initials = getInitials(authorName);
   const commentText = data.comment || data.title;
   const truncateLength = 400;
   const needsTruncation = commentText.length > truncateLength;
@@ -89,13 +89,7 @@ function CommentItem({ data }: { data: CommentItemData }) {
       <div className="thread-line" />
 
       <div className="flex items-start gap-2.5">
-        {/* Avatar */}
-        <div
-          className="comment-avatar"
-          style={{ backgroundColor: avatarColor }}
-        >
-          {initials}
-        </div>
+        <Avatar name={authorName} size="sm" />
 
         <div className="flex-1 min-w-0">
           {/* Author Line */}
@@ -103,11 +97,7 @@ function CommentItem({ data }: { data: CommentItemData }) {
             <span className="font-semibold text-[var(--foreground)]">
               {authorName}
             </span>
-            {isOrg && (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--accent-primary-soft)] text-[var(--accent-primary)]">
-                Organization
-              </span>
-            )}
+            {isOrg && <Badge variant="accent" size="xs">Organization</Badge>}
             {data.postedDate && (
               <span className="text-xs text-[var(--muted)]">
                 {timeAgo(data.postedDate)}

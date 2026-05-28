@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { getAgencyInfo, timeAgo, formatCount } from '@/lib/agencyMetadata';
 import { stripQuotes, decodeHtml, parseRawJson } from '@/lib/utils/fieldFormat';
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
 
 interface DocketPostProps {
   item: Record<string, any>;
@@ -82,7 +84,8 @@ export function DocketPost({
   const regsDotGovUrl = `https://www.regulations.gov/docket/${docketId}`;
 
   return (
-    <article className="docket-post">
+    <Card asChild variant="post">
+      <article>
       <div className="p-5">
         {/* Header: Agency + Title */}
         <div className="flex items-start gap-3 mb-3">
@@ -122,30 +125,19 @@ export function DocketPost({
 
             {/* Badges */}
             <div className="flex items-center gap-2 mt-1.5">
-              {docketType && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[var(--surface-elevated)] text-[var(--muted)]">
-                  {docketType}
-                </span>
-              )}
+              {docketType && <Badge>{docketType}</Badge>}
               {isOpenForComment && commentEndDate && (() => {
                 const urgency = getDeadlineUrgency(commentEndDate);
                 return (
-                  <span
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium"
-                    style={{ backgroundColor: `${urgency.color}15`, color: urgency.color }}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: urgency.color }} />
+                  <Badge variant="urgent" color={urgency.color} dot>
                     Open for Comment · {urgency.label}
-                  </span>
+                  </Badge>
                 );
               })()}
               {!isOpenForComment && isRecentlyClosed && daysSinceClosed !== null && (
-                <span
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-[var(--surface-elevated)] text-[var(--muted)]"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--muted)]" />
+                <Badge dot>
                   Recently Closed · {daysSinceClosed === 0 ? 'today' : `${daysSinceClosed}d ago`}
-                </span>
+                </Badge>
               )}
             </div>
           </div>
@@ -243,6 +235,7 @@ export function DocketPost({
           </a>
         </div>
       </div>
-    </article>
+      </article>
+    </Card>
   );
 }

@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { Slot } from '@radix-ui/react-slot';
 
 /**
  * Small inline pill for labelling/typing a piece of metadata.
@@ -28,6 +29,8 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   color?: string;
   /** Show a small filled dot before the label (urgent-style). */
   dot?: boolean;
+  /** Forward chrome to the child element (Link, anchor, button, etc.). */
+  asChild?: boolean;
 }
 
 const VARIANT_CLASS: Record<Exclude<BadgeVariant, 'urgent'>, string> = {
@@ -46,6 +49,7 @@ export function Badge({
   size = 'sm',
   color,
   dot,
+  asChild = false,
   className = '',
   children,
   style,
@@ -53,6 +57,7 @@ export function Badge({
 }: BadgeProps) {
   const base = 'inline-flex items-center gap-1 rounded font-medium whitespace-nowrap';
   const sized = SIZE_CLASS[size];
+  const Comp = asChild ? Slot : 'span';
 
   if (variant === 'urgent') {
     // Caller drives color; we just compose the chrome.
@@ -60,7 +65,7 @@ export function Badge({
       ? { backgroundColor: `${color}26`, color, ...style }
       : (style ?? {});
     return (
-      <span className={`${base} ${sized} ${className}`} style={urgentStyle} {...rest}>
+      <Comp className={`${base} ${sized} ${className}`} style={urgentStyle} {...rest}>
         {dot && (
           <span
             className="w-1.5 h-1.5 rounded-full"
@@ -69,12 +74,12 @@ export function Badge({
           />
         )}
         {children}
-      </span>
+      </Comp>
     );
   }
 
   return (
-    <span
+    <Comp
       className={`${base} ${sized} ${VARIANT_CLASS[variant]} ${className}`}
       style={style}
       {...rest}
@@ -83,6 +88,6 @@ export function Badge({
         <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" aria-hidden />
       )}
       {children}
-    </span>
+    </Comp>
   );
 }
