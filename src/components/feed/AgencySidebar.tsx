@@ -4,7 +4,8 @@ import { useMemo } from 'react';
 import Link from 'next/link';
 import { ExternalLink, Scale, BookOpen } from 'lucide-react';
 import { getAgencyInfo, formatCount } from '@/lib/agencyMetadata';
-import { AgencyAvatar } from './AgencyAvatar';
+import { Card } from '@/components/ui/Card';
+import { Avatar } from '@/components/ui/Avatar';
 
 interface AgencySidebarProps {
   agencyCode: string;
@@ -21,7 +22,7 @@ export function AgencySidebar({ agencyCode, stats }: AgencySidebarProps) {
   return (
     <div className="space-y-4">
       {/* About Card */}
-      <div className="card-gradient overflow-hidden">
+      <Card variant="gradient" className="overflow-hidden">
         {/* Header */}
         <div
           className="h-8 relative"
@@ -32,7 +33,14 @@ export function AgencySidebar({ agencyCode, stats }: AgencySidebarProps) {
 
         <div className="p-4 -mt-6">
           <div className="flex items-center gap-3 mb-3">
-            <AgencyAvatar agency={agency} size="md" className="border-2 border-[var(--surface)]" />
+            <Avatar
+              name={agency.name}
+              src={agency.favicon}
+              color={agency.color}
+              fallback={agency.shortName}
+              size="lg"
+              className="border-2 border-[var(--surface)]"
+            />
             <div>
               <h3 className="font-semibold text-sm text-[var(--foreground)]">
                 About sr/{agencyCode}
@@ -69,10 +77,10 @@ export function AgencySidebar({ agencyCode, stats }: AgencySidebarProps) {
             </div>
           )}
         </div>
-      </div>
+      </Card>
 
       {/* Guidelines */}
-      <div className="card-gradient p-4">
+      <Card variant="gradient" className="p-4">
         <h4 className="font-semibold text-sm text-[var(--foreground)] mb-2 flex items-center gap-1.5">
           <Scale size={14} />
           Guidelines
@@ -91,11 +99,11 @@ export function AgencySidebar({ agencyCode, stats }: AgencySidebarProps) {
             Submit official comments at regulations.gov
           </li>
         </ul>
-      </div>
+      </Card>
 
       {/* Related Agencies */}
       {agency.relatedAgencies.length > 0 && (
-        <div className="card-gradient p-4">
+        <Card variant="gradient" className="p-4">
           <h4 className="font-semibold text-sm text-[var(--foreground)] mb-2 flex items-center gap-1.5">
             <BookOpen size={14} />
             Related Agencies
@@ -109,22 +117,22 @@ export function AgencySidebar({ agencyCode, stats }: AgencySidebarProps) {
                   href={`/sr/${code}`}
                   className="flex items-center gap-2 text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
                 >
-                  <div
-                    className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white"
-                    style={{ backgroundColor: related.color }}
-                  >
-                    {code.slice(0, 2)}
-                  </div>
+                  <Avatar
+                    name={related.name}
+                    color={related.color}
+                    fallback={code.slice(0, 2)}
+                    size="xs"
+                  />
                   {related.name}
                 </Link>
               );
             })}
           </div>
-        </div>
+        </Card>
       )}
 
       {/* Useful Links */}
-      <div className="card-gradient p-4">
+      <Card variant="gradient" className="p-4">
         <h4 className="font-semibold text-sm text-[var(--foreground)] mb-2 flex items-center gap-1.5">
           <ExternalLink size={14} />
           Useful Links
@@ -143,7 +151,7 @@ export function AgencySidebar({ agencyCode, stats }: AgencySidebarProps) {
             </a>
           ))}
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

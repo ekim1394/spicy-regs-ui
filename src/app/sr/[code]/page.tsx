@@ -24,7 +24,6 @@ import {
   type SortOption,
 } from '@/lib/feedFilters';
 import { getAgencyInfo } from '@/lib/agencyMetadata';
-import { AgencyAvatar } from '@/components/feed/AgencyAvatar';
 import { Loader2 } from 'lucide-react';
 import { stripQuotes } from '@/lib/utils/fieldFormat';
 

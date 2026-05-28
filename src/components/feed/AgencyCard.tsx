@@ -3,7 +3,8 @@
 import Link from 'next/link';
 import { MessageSquare, FileText } from 'lucide-react';
 import { getAgencyInfo, formatCount } from '@/lib/agencyMetadata';
-import { AgencyAvatar } from './AgencyAvatar';
+import { Card } from '@/components/ui/Card';
+import { Avatar } from '@/components/ui/Avatar';
 
 interface AgencyCardProps {
   code: string;
@@ -15,10 +16,20 @@ export function AgencyCard({ code, docketCount = 0, commentCount = 0 }: AgencyCa
   const agency = getAgencyInfo(code);
 
   return (
-    <Link href={`/sr/${code}`} className="block">
-      <div className="card-gradient p-5 h-full flex flex-col hover:border-[var(--accent-primary)] transition-all duration-200 group">
+    <Card
+      asChild
+      variant="gradient"
+      className="p-5 h-full flex flex-col hover:border-[var(--accent-primary)] transition-all duration-200 group"
+    >
+      <Link href={`/sr/${code}`}>
         <div className="flex items-center gap-3 mb-3">
-          <AgencyAvatar agency={agency} size="md" />
+          <Avatar
+            name={agency.name}
+            src={agency.favicon}
+            color={agency.color}
+            fallback={agency.shortName}
+            size="lg"
+          />
           <div className="min-w-0">
             <h3 className="font-semibold text-[var(--foreground)] group-hover:text-[var(--accent-primary)] transition-colors truncate">
               {agency.name}
@@ -41,7 +52,7 @@ export function AgencyCard({ code, docketCount = 0, commentCount = 0 }: AgencyCa
             {formatCount(commentCount)} comments
           </span>
         </div>
-      </div>
-    </Link>
+      </Link>
+    </Card>
   );
 }
