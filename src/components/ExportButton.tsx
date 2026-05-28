@@ -1,10 +1,16 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState } from 'react';
 import { Download, ChevronDown, Loader2 } from 'lucide-react';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
 import { useDuckDBRaw } from '@/lib/duckdb/context';
 import { stripQuotes } from '@/lib/utils/fieldFormat';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/DropdownMenu';
 
 type ExportFormat = 'csv' | 'json' | 'parquet';
 
@@ -61,22 +67,13 @@ function cleanRow(row: Record<string, any>): Record<string, any> {
 }
 
 export function ExportButton({ docketId, agencyCode, docket, documents }: ExportButtonProps) {
-  const [open, setOpen] = useState(false);
   const [exporting, setExporting] = useState<ExportFormat | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const { getAllCommentsForDocket } = useDuckDBService();
   const { db, conn, isReady } = useDuckDBRaw();
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    if (open) document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, [open]);
+  // Radix handles outside-click + escape close natively, so the dropdown
+  // state we previously juggled with refs + useEffect goes away. We still
+  // track `exporting` to render the spinner.
 
   const baseFilename = `${docketId}_${today()}`;
 
@@ -90,7 +87,6 @@ export function ExportButton({ docketId, agencyCode, docket, documents }: Export
       triggerDownload(blob, `${baseFilename}.csv`);
     } finally {
       setExporting(null);
-      setOpen(false);
     }
   }
 
@@ -108,7 +104,6 @@ export function ExportButton({ docketId, agencyCode, docket, documents }: Export
       triggerDownload(blob, `${baseFilename}.json`);
     } finally {
       setExporting(null);
-      setOpen(false);
     }
   }
 
@@ -130,7 +125,6 @@ export function ExportButton({ docketId, agencyCode, docket, documents }: Export
 
       if (rows.length === 0) {
         setExporting(null);
-        setOpen(false);
         return;
       }
 
@@ -158,7 +152,6 @@ export function ExportButton({ docketId, agencyCode, docket, documents }: Export
       await db.dropFile(exportPath);
     } finally {
       setExporting(null);
-      setOpen(false);
     }
   }
 
@@ -169,9 +162,8 @@ export function ExportButton({ docketId, agencyCode, docket, documents }: Export
   ];
 
   return (
-    <div className="relative" ref={dropdownRef}>
-      <button
-        onClick={() => setOpen(!open)}
+    <DropdownMenu>
+      <DropdownMenuTrigger
         disabled={!isReady || exporting !== null}
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium
           bg-[var(--surface-elevated)] border border-[var(--border)]
@@ -185,28 +177,34 @@ export function ExportButton({ docketId, agencyCode, docket, documents }: Export
         )}
         {exporting ? 'Exporting...' : 'Export'}
         <ChevronDown size={12} />
-      </button>
+      </DropdownMenuTrigger>
 
-      {open && (
-        <div className="absolute right-0 top-full mt-1 w-52 rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] shadow-lg z-50 overflow-hidden">
-          {formats.map((fmt) => (
-            <button
-              key={fmt.id}
-              onClick={fmt.handler}
-              disabled={exporting !== null}
-              className="w-full text-left px-3 py-2.5 hover:bg-[var(--surface-raised)] transition-colors disabled:opacity-50 flex items-center justify-between"
-            >
-              <div>
-                <div className="text-sm font-medium text-[var(--foreground)]">{fmt.label}</div>
-                <div className="text-xs text-[var(--muted)]">{fmt.description}</div>
-              </div>
-              {exporting === fmt.id && (
-                <Loader2 size={14} className="animate-spin text-[var(--accent-primary)]" />
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+      <DropdownMenuContent align="end" className="w-52">
+        {formats.map((fmt) => (
+          <DropdownMenuItem
+            key={fmt.id}
+            disabled={exporting !== null}
+            // Radix's Item onSelect fires from both click and keyboard
+            // (Enter / Space) — preferred over onClick.
+            onSelect={(e) => {
+              // Keep the menu open while the export resolves so the spinner
+              // is visible. Radix closes on select by default; preventDefault
+              // overrides that for this row only.
+              e.preventDefault();
+              void fmt.handler();
+            }}
+            className="flex items-center justify-between"
+          >
+            <div>
+              <div className="text-sm font-medium text-[var(--foreground)]">{fmt.label}</div>
+              <div className="text-xs text-[var(--muted)]">{fmt.description}</div>
+            </div>
+            {exporting === fmt.id && (
+              <Loader2 size={14} className="animate-spin text-[var(--accent-primary)]" />
+            )}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
