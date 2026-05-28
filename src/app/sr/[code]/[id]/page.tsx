@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Header } from '@/components/Header';
+import { PageShell } from '@/components/ui/PageShell';
 import { DocketPost } from '@/components/feed/DocketPost';
 import { DocumentList } from '@/components/feed/DocumentList';
 import { ThreadedComments } from '@/components/feed/ThreadedComments';
@@ -64,34 +64,26 @@ export default function DocketDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[var(--background)]">
-        <Header />
-        <div className="flex justify-center py-24">
-          <Loader2 size={32} className="animate-spin text-[var(--accent-primary)]" />
-        </div>
-      </div>
+      <PageShell mainClassName="flex justify-center py-24">
+        <Loader2 size={32} className="animate-spin text-[var(--accent-primary)]" />
+      </PageShell>
     );
   }
 
   if (!docket) {
     return (
-      <div className="min-h-screen bg-[var(--background)]">
-        <Header />
-        <div className="max-w-3xl mx-auto px-4 py-16 text-center">
-          <h1 className="text-2xl font-bold mb-2">Docket not found</h1>
-          <p className="text-[var(--muted)] mb-4">{docketId}</p>
-          <Link href={`/sr/${agencyCode}`} className="text-[var(--accent-primary)] hover:underline">
-            ← Back to sr/{agencyCode}
-          </Link>
-        </div>
-      </div>
+      <PageShell maxWidth="3xl" mainClassName="max-w-3xl mx-auto px-4 py-16 text-center">
+        <h1 className="text-2xl font-bold mb-2">Docket not found</h1>
+        <p className="text-[var(--muted)] mb-4">{docketId}</p>
+        <Link href={`/sr/${agencyCode}`} className="text-[var(--accent-primary)] hover:underline">
+          ← Back to sr/{agencyCode}
+        </Link>
+      </PageShell>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[var(--background)]">
-      <Header />
-      <main className="max-w-5xl mx-auto px-4 py-6">
+    <PageShell maxWidth="5xl">
         {/* Back button + Export */}
         <div className="flex items-center justify-between mb-4">
           <Link
@@ -152,7 +144,6 @@ export default function DocketDetailPage() {
             </div>
           )}
         </div>
-      </main>
-    </div>
+    </PageShell>
   );
 }

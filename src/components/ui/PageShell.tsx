@@ -15,7 +15,7 @@ import { Header } from '@/components/Header';
  * us one place to evolve it (e.g. adding a footer, a global banner, or
  * dark-mode toggle).
  */
-export type PageShellMaxWidth = '4xl' | '5xl' | '6xl' | '7xl';
+export type PageShellMaxWidth = '3xl' | '4xl' | '5xl' | '6xl' | '7xl';
 
 export interface PageShellProps {
   children: React.ReactNode;
@@ -28,6 +28,7 @@ export interface PageShellProps {
 }
 
 const MAX_W_CLASS: Record<PageShellMaxWidth, string> = {
+  '3xl': 'max-w-3xl',
   '4xl': 'max-w-4xl',
   '5xl': 'max-w-5xl',
   '6xl': 'max-w-6xl',

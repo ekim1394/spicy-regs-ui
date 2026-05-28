@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import { Virtuoso } from 'react-virtuoso';
 import { Loader2 } from 'lucide-react';
 
-import { Header } from '@/components/Header';
+import { PageShell } from '@/components/ui/PageShell';
 import { FederalRegisterPost } from '@/components/feed/FederalRegisterPost';
 import { FRFeedFilters } from '@/components/feed/FRFeedFilters';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
@@ -165,19 +165,16 @@ function FederalRegisterFeed() {
 
 export default function FederalRegisterPage() {
   return (
-    <div className="min-h-screen bg-[var(--background)]">
-      <Header />
-      <main className="max-w-3xl mx-auto px-4 py-6">
-        <Suspense
-          fallback={
-            <div className="flex justify-center py-12">
-              <Loader2 size={24} className="animate-spin text-[var(--accent-primary)]" />
-            </div>
-          }
-        >
-          <FederalRegisterFeed />
-        </Suspense>
-      </main>
-    </div>
+    <PageShell maxWidth="3xl">
+      <Suspense
+        fallback={
+          <div className="flex justify-center py-12">
+            <Loader2 size={24} className="animate-spin text-[var(--accent-primary)]" />
+          </div>
+        }
+      >
+        <FederalRegisterFeed />
+      </Suspense>
+    </PageShell>
   );
 }

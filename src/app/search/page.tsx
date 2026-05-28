@@ -3,7 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { Header } from "@/components/Header";
+import { PageShell } from "@/components/ui/PageShell";
 import { SearchInput } from "@/components/SearchInput";
 import {
   SearchResultCard,
@@ -263,13 +263,13 @@ function Loader2Icon() {
 
 export default function SearchPage() {
   return (
-    <div className="min-h-screen bg-[var(--background)]">
-      <Header />
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <Suspense fallback={<SkeletonList />}>
-          <SearchBody />
-        </Suspense>
-      </main>
-    </div>
+    <PageShell
+      maxWidth="4xl"
+      mainClassName="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6"
+    >
+      <Suspense fallback={<SkeletonList />}>
+        <SearchBody />
+      </Suspense>
+    </PageShell>
   );
 }

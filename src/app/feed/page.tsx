@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect, Suspense, useMemo } from 'react';
 import { Virtuoso } from 'react-virtuoso';
-import { Header } from '@/components/Header';
+import { PageShell } from '@/components/ui/PageShell';
 import { DocketPost } from '@/components/feed/DocketPost';
 import { FeedFilters } from '@/components/feed/FeedFilters';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
@@ -179,19 +179,16 @@ function DocketFeed() {
 
 export default function DashboardPage() {
   return (
-    <div className="min-h-screen bg-[var(--background)]">
-      <Header />
-      <main className="max-w-3xl mx-auto px-4 py-6">
-        <Suspense
-          fallback={
-            <div className="flex justify-center py-12">
-              <Loader2 size={24} className="animate-spin text-[var(--accent-primary)]" />
-            </div>
-          }
-        >
-          <DocketFeed />
-        </Suspense>
-      </main>
-    </div>
+    <PageShell maxWidth="3xl">
+      <Suspense
+        fallback={
+          <div className="flex justify-center py-12">
+            <Loader2 size={24} className="animate-spin text-[var(--accent-primary)]" />
+          </div>
+        }
+      >
+        <DocketFeed />
+      </Suspense>
+    </PageShell>
   );
 }

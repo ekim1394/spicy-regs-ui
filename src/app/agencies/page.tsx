@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Header } from '@/components/Header';
+import { PageShell } from '@/components/ui/PageShell';
 import { AgencyCard } from '@/components/feed/AgencyCard';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
 import { getAllKnownAgencies, getAgencyInfo } from '@/lib/agencyMetadata';
@@ -44,10 +44,8 @@ export default function AgenciesPage() {
   }, [allAgencies, searchQuery]);
 
   return (
-    <div className="min-h-screen bg-[var(--background)]">
-      <Header />
-      <main className="max-w-5xl mx-auto px-4 py-8">
-        {/* Hero */}
+    <PageShell maxWidth="5xl" mainClassName="max-w-5xl mx-auto px-4 py-8">
+      {/* Hero */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold mb-3">
             <span className="gradient-text">Browse Agencies</span>
@@ -121,7 +119,6 @@ export default function AgenciesPage() {
             <span className="text-sm text-[var(--muted)]">Loading counts...</span>
           </div>
         )}
-      </main>
-    </div>
+    </PageShell>
   );
 }

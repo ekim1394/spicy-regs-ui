@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { Flame, Rss, Building2, Search, ExternalLink } from 'lucide-react';
-import { Header } from '@/components/Header';
+import { PageShell } from '@/components/ui/PageShell';
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-[var(--background)]">
-      <Header />
+    // `mainClassName=""` keeps <main> bleed-to-edge so each section can
+    // own its own max-width and full-width background treatment.
+    <PageShell mainClassName="">
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="max-w-4xl mx-auto px-6 pt-20 pb-16 text-center">
@@ -101,7 +102,7 @@ export default function HomePage() {
           </Link>
         </div>
       </section>
-    </div>
+    </PageShell>
   );
 }
 
