@@ -76,4 +76,46 @@ describe('FilterSelect', () => {
     );
     expect(screen.getByRole('combobox').className).toContain('filter-chip');
   });
+
+  // Radix Select reserves the empty string for "no selection" and throws
+  // if any Item declares value="". Several of our filter option arrays
+  // (DATE_OPTIONS, DOCKET_TYPE_OPTIONS, TOPIC_OPTIONS) use '' as their
+  // "All ___" sentinel — confirm the boundary translation holds.
+  describe('empty-string option handling', () => {
+    const EMPTY_OPTIONS = [
+      { value: '', label: 'All dates' },
+      { value: '7d', label: 'Last 7 days' },
+      { value: '30d', label: 'Last 30 days' },
+    ];
+
+    it('renders without throwing when a value is empty string', () => {
+      expect(() =>
+        render(
+          <FilterSelect
+            value=""
+            onValueChange={() => {}}
+            options={EMPTY_OPTIONS}
+            ariaLabel="Date range"
+          />,
+        ),
+      ).not.toThrow();
+      expect(screen.getByText('All dates')).toBeInTheDocument();
+    });
+
+    it('emits empty string back through onValueChange when the empty option is selected', async () => {
+      const onValueChange = vi.fn();
+      const user = userEvent.setup();
+      render(
+        <FilterSelect
+          value="7d"
+          onValueChange={onValueChange}
+          options={EMPTY_OPTIONS}
+          ariaLabel="Date range"
+        />,
+      );
+      await user.click(screen.getByRole('combobox', { name: 'Date range' }));
+      await user.click(await screen.findByText('All dates'));
+      expect(onValueChange).toHaveBeenCalledWith('');
+    });
+  });
 });
