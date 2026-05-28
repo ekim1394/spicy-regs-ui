@@ -1,6 +1,7 @@
 'use client';
 
-import { ChevronDown } from 'lucide-react';
+import { useMemo } from 'react';
+import { FilterSelect } from '@/components/ui/FilterSelect';
 import {
   DATE_OPTIONS,
   DOCKET_TYPE_OPTIONS,
@@ -54,60 +55,48 @@ export function FeedFilters({
   onTopicChange,
 }: FeedFiltersProps) {
   const showTopics = topic !== undefined && onTopicChange !== undefined;
+
+  // FilterSelect expects { value, label }; the feedFilters module emits
+  // { key, label }. Adapt once, memoized, instead of inline at each call.
+  const dateOptions = useMemo(
+    () => DATE_OPTIONS.map(o => ({ value: o.key, label: o.label })),
+    [],
+  );
+  const typeOptions = useMemo(
+    () => DOCKET_TYPE_OPTIONS.map(o => ({ value: o.key, label: o.label })),
+    [],
+  );
+  const statusOptions = useMemo(
+    () => STATUS_OPTIONS.map(o => ({ value: o.key, label: o.label })),
+    [],
+  );
+
   return (
     <div className="flex flex-col gap-3">
       {/* Row 1: dropdowns */}
       <div className="flex items-center gap-3 flex-wrap">
-      {showTopics && <TopicFilter topic={topic} onTopicChange={onTopicChange} />}
-      {/* Date Range Dropdown */}
-      <div className="relative">
-        <div className="flex items-center gap-1.5 px-1.5">
-          <ChevronDown size={14} className="text-[var(--muted)] pointer-events-none absolute right-2" />
-          <select
-            value={dateRange}
-            onChange={e => onDateRangeChange(e.target.value as DateRange)}
-            className="filter-chip appearance-none pr-7 cursor-pointer bg-[var(--surface)] text-[var(--foreground)] border-none focus:outline-none"
-          >
-            {DATE_OPTIONS.map(opt => (
-              <option key={opt.key} value={opt.key}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
-      </div>
+        {showTopics && <TopicFilter topic={topic} onTopicChange={onTopicChange} />}
 
-      {/* Docket Type Dropdown */}
-      <div className="relative">
-        <div className="flex items-center gap-1.5 px-1.5">
-          <ChevronDown size={14} className="text-[var(--muted)] pointer-events-none absolute right-2" />
-          <select
-            value={docketType}
-            onChange={e => onDocketTypeChange(e.target.value as DocketType)}
-            className="filter-chip appearance-none pr-7 cursor-pointer bg-[var(--surface)] text-[var(--foreground)] border-none focus:outline-none"
-          >
-            {DOCKET_TYPE_OPTIONS.map(opt => (
-              <option key={opt.key} value={opt.key}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
-      </div>
+        <FilterSelect<DateRange>
+          value={dateRange}
+          onValueChange={onDateRangeChange}
+          options={dateOptions}
+          ariaLabel="Filter by date range"
+        />
 
-      {/* Status Dropdown — owns the comment-period filter (Open / Recently Closed) */}
-      <div className="relative">
-        <div className="flex items-center gap-1.5 px-1.5">
-          <ChevronDown size={14} className="text-[var(--muted)] pointer-events-none absolute right-2" />
-          <select
-            value={sortToStatus(sortBy)}
-            onChange={e => onSortChange(statusToSort(e.target.value as StatusOption, sortBy))}
-            className="filter-chip appearance-none pr-7 cursor-pointer bg-[var(--surface)] text-[var(--foreground)] border-none focus:outline-none"
-            aria-label="Filter by comment period status"
-          >
-            {STATUS_OPTIONS.map(opt => (
-              <option key={opt.key} value={opt.key}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
-      </div>
+        <FilterSelect<DocketType>
+          value={docketType}
+          onValueChange={onDocketTypeChange}
+          options={typeOptions}
+          ariaLabel="Filter by docket type"
+        />
 
+        <FilterSelect<StatusOption>
+          value={sortToStatus(sortBy)}
+          onValueChange={(s) => onSortChange(statusToSort(s, sortBy))}
+          options={statusOptions}
+          ariaLabel="Filter by comment period status"
+        />
       </div>
 
       {/* Row 2: Sort Chips — only New / Popular; status dropdown handles Open / Closed */}
