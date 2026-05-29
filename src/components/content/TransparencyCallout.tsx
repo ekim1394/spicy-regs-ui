@@ -17,7 +17,7 @@ export function TransparencyCallout() {
           demo
         </span>
         <span className="text-sm font-semibold" style={{ color: 'var(--accent-amber)' }}>
-          Some values are simulated — and always labeled
+          Some values are simulated, and always labeled
         </span>
       </div>
       <p className="text-xs text-[var(--muted)] leading-relaxed">
