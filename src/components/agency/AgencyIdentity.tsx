@@ -1,0 +1,138 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+import { Card } from '@/components/ui/Card';
+import { Avatar } from '@/components/ui/Avatar';
+import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
+import { getAgencyInfo, getParentDept, formatCount } from '@/lib/agencyMetadata';
+
+interface AgencyStats {
+  docketCount: number;
+  documentCount: number;
+  commentCount: number;
+}
+
+export interface AgencyIdentityProps {
+  /** Agency code, e.g. "EPA". */
+  agencyCode: string;
+  /** Small label on the card frame ("Agency" on the docket page, "About" on the profile). */
+  label?: string;
+  /** CTA text, e.g. "View agency profile →". */
+  cta: string;
+  /** CTA destination. Defaults to the agency profile (`/sr/CODE`). */
+  href?: string;
+  /** Render the CTA as a primary (filled) button rather than a bordered one. */
+  pri?: boolean;
+  /**
+   * Pre-fetched stats. When omitted, the card fetches its own via
+   * getAgencyStats — so a caller that already has stats can avoid the extra
+   * round-trip, but the common case stays a one-liner.
+   */
+  stats?: AgencyStats;
+}
+
+/**
+ * Unified agency identity card — the single "who is this agency" treatment
+ * shared by the right rail of the Docket page and the Agency Profile page.
+ * Agency-tinted wash + avatar + serif name + sr/CODE handle + parent
+ * department + blurb + (dockets, comments) stat pair + CTA.
+ *
+ * Replaces the old multi-card AgencySidebar. Only `label`, `cta`, `href`,
+ * and `pri` vary by context — the body is identical on both pages so the
+ * rail never jumps treatment between them.
+ */
+export function AgencyIdentity({
+  agencyCode,
+  label,
+  cta,
+  href,
+  pri = false,
+  stats: statsProp,
+}: AgencyIdentityProps) {
+  const agency = useMemo(() => getAgencyInfo(agencyCode), [agencyCode]);
+  const dept = useMemo(() => getParentDept(agencyCode), [agencyCode]);
+  const ctaHref = href ?? `/sr/${agencyCode}`;
+
+  const { getAgencyStats, isReady } = useDuckDBService();
+  const [fetched, setFetched] = useState<AgencyStats | undefined>();
+  const stats = statsProp ?? fetched;
+
+  useEffect(() => {
+    if (statsProp || !isReady || !agencyCode) return;
+    let cancelled = false;
+    getAgencyStats(agencyCode)
+      .then((s) => { if (!cancelled) setFetched(s); })
+      .catch((err) => console.error('AgencyIdentity stats:', err));
+    return () => { cancelled = true; };
+  }, [statsProp, isReady, agencyCode, getAgencyStats]);
+
+  return (
+    <Card variant="gradient" className="overflow-hidden">
+      {label && (
+        <div className="px-4 pt-3 text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]">
+          {label}
+        </div>
+      )}
+
+      {/* Agency-tinted wash */}
+      <div
+        className="h-14"
+        style={{ background: `linear-gradient(135deg, ${agency.color}33, ${agency.color}0f)` }}
+      />
+
+      <div className="px-4 pb-4 -mt-6">
+        <Avatar
+          name={agency.name}
+          src={agency.favicon}
+          color={agency.color}
+          fallback={agency.shortName}
+          size="lg"
+          className="border-2 border-[var(--surface)]"
+        />
+
+        <h3 className="font-serif text-base text-[var(--foreground)] mt-2 leading-snug">
+          {agency.name}
+        </h3>
+        <div className="text-xs font-semibold" style={{ color: 'var(--accent-primary)' }}>
+          sr/{agencyCode}
+        </div>
+        <div className="text-[11px] text-[var(--muted)] mt-1">{dept}</div>
+
+        <p className="text-xs text-[var(--muted)] leading-relaxed mt-3 mb-4 line-clamp-3"
+           style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+          {agency.description}
+        </p>
+
+        {/* (dockets, comments) stat pair */}
+        <div className="flex gap-5 mb-4">
+          <div>
+            <div className="text-base font-bold text-[var(--foreground)]">
+              {stats ? formatCount(stats.docketCount) : '—'}
+            </div>
+            <div className="text-[10px] text-[var(--muted)]">dockets</div>
+          </div>
+          <div>
+            <div className="text-base font-bold text-[var(--foreground)]">
+              {stats ? formatCount(stats.commentCount) : '—'}
+            </div>
+            <div className="text-[10px] text-[var(--muted)]">comments</div>
+          </div>
+        </div>
+
+        {pri ? (
+          <Link href={ctaHref} className="btn-primary inline-flex items-center text-sm w-full justify-center">
+            {cta}
+          </Link>
+        ) : (
+          <Link
+            href={ctaHref}
+            className="inline-flex items-center justify-center w-full px-4 py-2 rounded-[10px] text-sm font-medium border border-[var(--border)] text-[var(--foreground)] hover:border-[var(--accent-primary)] hover:bg-[var(--surface-elevated)] transition-colors"
+          >
+            {cta}
+          </Link>
+        )}
+      </div>
+    </Card>
+  );
+}

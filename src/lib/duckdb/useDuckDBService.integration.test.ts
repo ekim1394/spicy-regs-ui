@@ -44,6 +44,8 @@ const parquetRef = (type: string) => `read_parquet('${R2}/${type}.parquet')`;
 const commentsForAgency = (code: string) =>
   `read_parquet('${R2}/comments/agency/agency_code=${code}/part-0.parquet')`;
 const feedSummaryRef = () => `read_parquet('${R2}/feed_summary.parquet')`;
+const commentsIndexRef = () => `read_parquet('${R2}/comments_index.parquet')`;
+const documentsRef = () => `read_parquet('${R2}/documents.parquet')`;
 
 describe('dockets.parquet schema', () => {
   it('has required columns', async () => {
@@ -324,5 +326,156 @@ describe('COPY TO parquet (export)', () => {
     // Clean up
     const fs = await import('fs');
     fs.unlinkSync(exportPath);
+  });
+});
+
+// ── IA recast (Phase 0) — new service-method queries ──────────────────────
+// These mirror the SQL in useDuckDBService for the recast. The hook itself
+// can't run under node (React), so — as elsewhere in this file — we assert the
+// queries parse, hit the live schema, and return the expected shape.
+
+describe('getDiscoverySignals — closing soon', () => {
+  it('returns dockets with a comment window closing within 3 days', async () => {
+    const rows = await runQuery<{ docket_id: string; comment_end_date: string }>(`
+      SELECT docket_id, agency_code, title, comment_end_date, comment_count
+      FROM ${feedSummaryRef()}
+      WHERE TRY_CAST(comment_end_date AS TIMESTAMP)
+            BETWEEN CAST(NOW() AS TIMESTAMP) AND CAST(NOW() AS TIMESTAMP) + INTERVAL '3' DAY
+      ORDER BY comment_end_date ASC
+      LIMIT 3
+    `);
+    expect(rows.length).toBeGreaterThanOrEqual(0);
+    expect(rows.length).toBeLessThanOrEqual(3);
+  });
+});
+
+describe('getDiscoverySignals — most discussed', () => {
+  it('orders by comment_count descending', async () => {
+    const rows = await runQuery<{ comment_count: number }>(`
+      SELECT docket_id, agency_code, title, comment_count
+      FROM ${feedSummaryRef()}
+      ORDER BY comment_count DESC
+      LIMIT 3
+    `);
+    expect(rows.length).toBe(3);
+    for (let i = 1; i < rows.length; i++) {
+      expect(Number(rows[i - 1].comment_count)).toBeGreaterThanOrEqual(Number(rows[i].comment_count));
+    }
+  });
+});
+
+describe('getDiscoverySignals — surge (comments_index recent-month delta)', () => {
+  it('computes a recent-vs-prior month delta per docket', async () => {
+    const rows = await runQuery<{ docket_id: string; recent_n: number; prev_n: number; delta: number }>(`
+      WITH mx AS (SELECT MAX(year*12+(month-1)) AS m FROM ${commentsIndexRef()}),
+      agg AS (
+        SELECT docket_id, agency_code,
+          CAST(SUM(row_count) FILTER (WHERE year*12+(month-1) = (SELECT m FROM mx)) AS BIGINT) AS recent_n,
+          CAST(SUM(row_count) FILTER (WHERE year*12+(month-1) = (SELECT m FROM mx)-1) AS BIGINT) AS prev_n
+        FROM ${commentsIndexRef()}
+        WHERE year*12+(month-1) >= (SELECT m FROM mx)-1
+        GROUP BY 1, 2
+      )
+      SELECT a.docket_id, a.agency_code, fs.title,
+             a.recent_n, COALESCE(a.prev_n, 0) AS prev_n,
+             (a.recent_n - COALESCE(a.prev_n, 0)) AS delta
+      FROM agg a LEFT JOIN ${feedSummaryRef()} fs USING (docket_id)
+      WHERE a.recent_n > 0
+      ORDER BY delta DESC
+      LIMIT 3
+    `);
+    expect(rows.length).toBeGreaterThan(0);
+    expect(Number(rows[0].recent_n)).toBeGreaterThan(0);
+  });
+});
+
+describe('getDiscoverySignals — output spike (documents 30d vs baseline)', () => {
+  it('parses the ratio query against documents', async () => {
+    const rows = await runQuery<{ agency_code: string; ratio: number }>(`
+      WITH per AS (
+        SELECT agency_code,
+          COUNT(*) FILTER (WHERE TRY_CAST(posted_date AS TIMESTAMP) >= CAST(NOW() AS TIMESTAMP) - INTERVAL '30' DAY) AS recent_30d,
+          COUNT(*) FILTER (WHERE TRY_CAST(posted_date AS TIMESTAMP) >= CAST(NOW() AS TIMESTAMP) - INTERVAL '13' MONTH
+                            AND TRY_CAST(posted_date AS TIMESTAMP) < CAST(NOW() AS TIMESTAMP) - INTERVAL '1' MONTH) AS prior_yr
+        FROM ${documentsRef()}
+        WHERE TRY_CAST(posted_date AS TIMESTAMP) >= CAST(NOW() AS TIMESTAMP) - INTERVAL '13' MONTH AND agency_code IS NOT NULL
+        GROUP BY 1
+      )
+      SELECT agency_code, (recent_30d / NULLIF(prior_yr / 12.0, 0)) AS ratio
+      FROM per
+      WHERE prior_yr >= 24 AND (recent_30d / NULLIF(prior_yr / 12.0, 0)) >= 2.0
+      ORDER BY ratio DESC
+      LIMIT 3
+    `);
+    for (const r of rows) expect(Number(r.ratio)).toBeGreaterThanOrEqual(2.0);
+  });
+});
+
+describe('getDocumentById query', () => {
+  it('returns a single document row with the expected columns', async () => {
+    const [seed] = await runQuery<{ document_id: string }>(
+      `SELECT document_id FROM ${documentsRef()} WHERE agency_code = 'EPA' LIMIT 1`
+    );
+    const rows = await runQuery<Record<string, unknown>>(`
+      SELECT document_id, docket_id, agency_code, title, document_type,
+             posted_date, modify_date, comment_start_date, comment_end_date, file_url
+      FROM ${documentsRef()}
+      WHERE document_id = '${String(seed.document_id).replace(/'/g, "''")}'
+      LIMIT 1
+    `);
+    expect(rows.length).toBe(1);
+    expect(rows[0]).toHaveProperty('file_url');
+    expect(rows[0]).toHaveProperty('document_type');
+  });
+});
+
+describe('getOpenRulemakings query', () => {
+  it('returns only open windows, soonest deadline first', async () => {
+    const rows = await runQuery<{ comment_end_date: string }>(`
+      SELECT docket_id, agency_code, title, comment_count, comment_end_date
+      FROM ${feedSummaryRef()}
+      WHERE agency_code = 'EPA' AND TRY_CAST(comment_end_date AS TIMESTAMP) > CAST(NOW() AS TIMESTAMP)
+      ORDER BY comment_end_date ASC
+      LIMIT 20
+    `);
+    for (let i = 1; i < rows.length; i++) {
+      expect(new Date(rows[i - 1].comment_end_date).getTime())
+        .toBeLessThanOrEqual(new Date(rows[i].comment_end_date).getTime());
+    }
+  });
+});
+
+describe('getAgencyMonthlyVolumeBatch query', () => {
+  it('returns monthly document counts for multiple agencies in one query', async () => {
+    const rows = await runQuery<{ agency_code: string; month: string; n: number }>(`
+      SELECT agency_code,
+             strftime(date_trunc('month', TRY_CAST(posted_date AS DATE)), '%Y-%m') AS month,
+             COUNT(*) AS n
+      FROM ${documentsRef()}
+      WHERE agency_code IN ('EPA','FDA')
+        AND TRY_CAST(posted_date AS DATE) >= date_trunc('month', CURRENT_DATE) - INTERVAL '11' MONTH
+      GROUP BY 1, 2
+      ORDER BY 1, 2
+    `);
+    expect(rows.length).toBeGreaterThan(0);
+    const codes = new Set(rows.map(r => String(r.agency_code).replace(/^"|"$/g, '')));
+    expect(codes.has('EPA') || codes.has('FDA')).toBe(true);
+  });
+});
+
+describe('getAllAgencyCounts — comment totals per agency', () => {
+  it('sums row_count per agency from the comments index', async () => {
+    const rows = await runQuery<{ agency_code: string; comment_cnt: number }>(`
+      SELECT agency_code, CAST(SUM(row_count) AS BIGINT) AS comment_cnt
+      FROM ${commentsIndexRef()}
+      GROUP BY agency_code
+      ORDER BY comment_cnt DESC
+      LIMIT 5
+    `);
+    expect(rows.length).toBe(5);
+    expect(Number(rows[0].comment_cnt)).toBeGreaterThan(0);
+    for (let i = 1; i < rows.length; i++) {
+      expect(Number(rows[i - 1].comment_cnt)).toBeGreaterThanOrEqual(Number(rows[i].comment_cnt));
+    }
   });
 });

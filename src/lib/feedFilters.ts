@@ -12,6 +12,19 @@ export const DEFAULT_SORT: SortOption = 'recent';
 export const DEFAULT_DATE: DateRange = '';
 export const DEFAULT_TYPE: DocketType = '';
 
+/**
+ * Whether to interleave Federal Register publications into the feed river.
+ * Modelled as a string union (not a bare boolean) so it rides the same
+ * URL/localStorage useFilterState plumbing as the other feed filters.
+ */
+export type IncludeFR = 'off' | 'on';
+export const INCLUDE_FR_STORAGE_KEY = 'spicy-regs-include-fr';
+export const DEFAULT_INCLUDE_FR: IncludeFR = 'off';
+
+export function isIncludeFR(raw: string): raw is IncludeFR {
+  return raw === 'off' || raw === 'on';
+}
+
 const SORT_VALUES: readonly SortOption[] = ['recent', 'popular', 'open', 'closed'];
 const DATE_VALUES: readonly DateRange[] = ['', '7d', '30d', '90d', '365d'];
 const TYPE_VALUES: readonly DocketType[] = ['', 'rule', 'nonrule', 'other'];

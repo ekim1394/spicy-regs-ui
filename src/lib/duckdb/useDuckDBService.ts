@@ -6,6 +6,12 @@ import { RegulationsDataTypes } from "@/lib/db/models";
 import { TOPIC_MAPPINGS, type TopicKey } from "@/lib/feedFilters";
 import type { FederalRegisterDoc, FRFilters } from "@/lib/fr/types";
 import { stripQuotes } from "@/lib/utils/fieldFormat";
+import {
+  sqlDisplayClean,
+  sqlStripContacts,
+  sqlSkeletonFinal,
+  sqlTokenSetKey,
+} from "@/lib/text/normalize";
 
 /** Default row limit to prevent OOM in the browser */
 const DEFAULT_LIMIT = 1000;
@@ -525,28 +531,39 @@ export function useDuckDBService() {
   );
 
   /**
-   * Get docket counts for all agencies.
-   * Only counts dockets (from dockets.parquet). Comment counts are omitted
-   * since they'd require scanning 3GB+ of comment partitions.
+   * Get docket + comment counts for all agencies, keyed by code.
+   * Dockets come from dockets.parquet; comment totals from the comments index
+   * (SUM(row_count) per agency) — cheap, since the index never touches the
+   * multi-GB comment data files. Two GROUP BYs run in parallel and merge.
    */
   const getAllAgencyCounts = useCallback(
     async (): Promise<Record<string, { dockets: number; comments: number }>> => {
       if (!isReady) throw new Error("DuckDB not ready");
 
-      const query = `
-        SELECT agency_code, COUNT(*) as docket_cnt
-        FROM ${parquetRef("dockets" as RegulationsDataTypes)}
-        GROUP BY agency_code
-      `;
+      const [docketRows, commentRows] = await Promise.all([
+        runQuery<{ agency_code: string; docket_cnt: number }>(`
+          SELECT agency_code, COUNT(*) as docket_cnt
+          FROM ${parquetRef("dockets" as RegulationsDataTypes)}
+          GROUP BY agency_code
+        `),
+        runQuery<{ agency_code: string; comment_cnt: number }>(`
+          SELECT agency_code, CAST(SUM(row_count) AS BIGINT) as comment_cnt
+          FROM ${commentsIndexRef()}
+          GROUP BY agency_code
+        `),
+      ]);
 
-      const rows = await runQuery<{ agency_code: string; docket_cnt: number }>(query);
       const result: Record<string, { dockets: number; comments: number }> = {};
-      for (const r of rows) {
-        const code = r.agency_code?.replace(/^"|"$/g, '') || '';
-        result[code] = {
-          dockets: Number(r.docket_cnt),
-          comments: 0,
-        };
+      for (const r of docketRows) {
+        const code = stripQuotes(r.agency_code);
+        if (!code) continue;
+        result[code] = { dockets: Number(r.docket_cnt), comments: 0 };
+      }
+      for (const r of commentRows) {
+        const code = stripQuotes(r.agency_code);
+        if (!code) continue;
+        if (result[code]) result[code].comments = Number(r.comment_cnt);
+        else result[code] = { dockets: 0, comments: Number(r.comment_cnt) };
       }
       return result;
     },
@@ -736,10 +753,16 @@ export function useDuckDBService() {
    * Volume curve + form-letter clusters for a single docket — drives /lab
    * Panel 2 (comment orchestration). Three rolled-up shapes returned together
    * so the panel does one round-trip.
+   *
+   * `tier` controls how comments are grouped into clusters (see
+   * getCommentClustersMultiTier for the full ladder). Defaults to 'exact' to
+   * preserve existing callers; the /lab uniqueness panel passes 'near' for the
+   * higher-fidelity, fuzz-tolerant default.
    */
   const getCommentVolumeAndClusters = useCallback(
     async (
-      docketId: string
+      docketId: string,
+      tier: 'exact' | 'template' | 'near' = 'exact'
     ): Promise<{
       docketTitle: string;
       docketAbstract: string;
@@ -788,6 +811,7 @@ export function useDuckDBService() {
         return {
           docketTitle,
           docketAbstract,
+          commentStartDate: null,
           commentEndDate,
           totals: { total: 0, unique: 0, empty: 0 },
           volumeByDay: [],
@@ -795,13 +819,32 @@ export function useDuckDBService() {
         };
       }
 
-      const [totals, volumeByDay, clusters, startDateRows] = await Promise.all([
-        runQuery<{ total: number; unique: number; empty: number }>(`
-          SELECT COUNT(*) AS total,
-                 COUNT(DISTINCT md5(LOWER(TRIM(comment)))) AS unique,
-                 COUNT(*) FILTER (WHERE comment IS NULL OR TRIM(comment) = '') AS empty
+      // Grouping key per tier. 'exact' keeps the original byte-identical hash;
+      // 'template'/'near' reuse the portable normalization in lib/text.
+      const skeleton = sqlSkeletonFinal(sqlStripContacts('display'));
+      const keyExpr =
+        tier === 'exact'
+          ? `md5(lower(trim(comment)))`
+          : tier === 'near'
+            ? `md5(${sqlTokenSetKey(skeleton)})`
+            : `md5(${skeleton})`;
+      const keyedCTE = `
+        WITH disp AS (
+          SELECT comment, posted_date, ${sqlDisplayClean('comment')} AS display
           FROM ${commentsSource}
           WHERE docket_id = '${sqlStr(cleanId)}'
+        ),
+        keyed AS (
+          SELECT comment, posted_date, display, ${keyExpr} AS k FROM disp
+        )`;
+
+      const [totals, volumeByDay, clusters, startDateRows] = await Promise.all([
+        runQuery<{ total: number; unique: number; empty: number }>(`
+          ${keyedCTE}
+          SELECT COUNT(*) AS total,
+                 COUNT(DISTINCT k) AS unique,
+                 COUNT(*) FILTER (WHERE comment IS NULL OR TRIM(comment) = '') AS empty
+          FROM keyed
         `),
         runQuery<{ day: string; n: number }>(`
           SELECT strftime(date_trunc('day', TRY_CAST(posted_date AS DATE)), '%Y-%m-%d') AS day,
@@ -813,14 +856,14 @@ export function useDuckDBService() {
           ORDER BY 1
         `),
         runQuery<{ hash: string; n: number; sample: string; firstDay: string; lastDay: string }>(`
-          SELECT md5(LOWER(TRIM(comment))) AS hash,
+          ${keyedCTE}
+          SELECT k AS hash,
                  COUNT(*) AS n,
-                 LEFT(ANY_VALUE(comment), 240) AS sample,
+                 LEFT(ANY_VALUE(display), 240) AS sample,
                  strftime(MIN(TRY_CAST(posted_date AS DATE)), '%Y-%m-%d') AS firstDay,
                  strftime(MAX(TRY_CAST(posted_date AS DATE)), '%Y-%m-%d') AS lastDay
-          FROM ${commentsSource}
-          WHERE docket_id = '${sqlStr(cleanId)}'
-            AND comment IS NOT NULL AND TRIM(comment) <> ''
+          FROM keyed
+          WHERE comment IS NOT NULL AND TRIM(comment) <> ''
           GROUP BY 1
           ORDER BY n DESC
           LIMIT 20
@@ -848,6 +891,136 @@ export function useDuckDBService() {
           empty: Number(totals[0]?.empty ?? 0),
         },
         volumeByDay: volumeByDay.map(r => ({ day: r.day, n: Number(r.n) })),
+        clusters: clusters.map(r => ({ ...r, n: Number(r.n), sample: stripQuotes(r.sample) })),
+      };
+    },
+    [runQuery, isReady, buildCommentsSource]
+  );
+
+  /**
+   * Pick a few random dockets that have a workable number of comments — used by
+   * the /lab uniqueness panel to show how the clustering behaves on arbitrary
+   * dockets, not just the curated organic/orchestrated pair. Bounds keep the
+   * live clustering scans responsive. Reads only the small comments_index.
+   */
+  const getRandomDocketsWithComments = useCallback(
+    async (
+      count: number = 2,
+      minComments: number = 200,
+      maxComments: number = 50000
+    ): Promise<{ docket_id: string; n: number }[]> => {
+      if (!isReady) throw new Error('DuckDB not ready');
+      const rows = await runQuery<{ docket_id: string; n: number }>(`
+        SELECT docket_id, SUM(row_count) AS n
+        FROM ${commentsIndexRef()}
+        GROUP BY docket_id
+        HAVING SUM(row_count) BETWEEN ${minComments} AND ${maxComments}
+        ORDER BY random()
+        LIMIT ${count}
+      `);
+      return rows.map(r => ({ docket_id: stripQuotes(r.docket_id), n: Number(r.n) }));
+    },
+    [runQuery, isReady]
+  );
+
+  /**
+   * Higher-fidelity comment clustering for the /lab fidelity demo. Same shape as
+   * getCommentVolumeAndClusters' totals+clusters, but the grouping key varies by
+   * `tier`, demonstrating how much orchestration exact-match hides:
+   *   - 'exact'    — md5(lower(trim(comment))). What the orchestration panel does
+   *                  today; byte-identical only.
+   *   - 'template' — md5(skeleton): HTML, contacts, all digits, case and
+   *                  punctuation stripped, so letters differing only in
+   *                  formatting or filled-in numbers/ZIPs collapse into one
+   *                  cluster.
+   *   - 'near'     — md5(sorted distinct skeleton tokens): order/edit-tolerant.
+   *                  A cheap O(n) stand-in for SimHash/MinHash LSH (recommended
+   *                  for the offline pipeline). Strictly coarser than 'template'.
+   *
+   * The transforms reuse the SQL builders in lib/text/normalize.ts — the exact
+   * same logic the TS demo and (recommended) the mirror precompute would run.
+   * `sample` is the cleaned display text so the panel can score stance on it.
+   *
+   * NOTE: the comment partition files carry no submitter name/org columns (a
+   * known mirror schema gap), so the extra "mask the signer's own name" step in
+   * the TS spec (toSkeleton) can't run here — it's deferred to the offline
+   * pipeline where those fields exist. Body-only form letters still collapse.
+   */
+  const getCommentClustersMultiTier = useCallback(
+    async (
+      docketId: string,
+      tier: 'exact' | 'template' | 'near' = 'template'
+    ): Promise<{
+      totals: { total: number; unique: number; empty: number };
+      clusters: { hash: string; n: number; sample: string; firstDay: string; lastDay: string }[];
+    }> => {
+      if (!isReady) throw new Error('DuckDB not ready');
+
+      const cleanId = docketId.replace(/^"|"$/g, '').toUpperCase();
+      const agency = cleanId.split('-')[0];
+      const commentsSource = await buildCommentsSource(agency, cleanId);
+      if (!commentsSource) return { totals: { total: 0, unique: 0, empty: 0 }, clusters: [] };
+
+      // CTE pipeline: clean → strip contacts → strip the submitter's own
+      // name/org (one stage each, so the intermediate column is reused, not
+      // recomputed) → final skeleton. The selected tier picks the grouping key.
+      const keyExpr =
+        tier === 'exact'
+          ? `md5(lower(trim(comment)))`
+          : tier === 'near'
+            ? `md5(${sqlTokenSetKey('skeleton')})`
+            : `md5(skeleton)`;
+
+      const base = `
+        WITH src AS (
+          SELECT comment, posted_date
+          FROM ${commentsSource}
+          WHERE docket_id = '${sqlStr(cleanId)}'
+        ),
+        disp AS (
+          SELECT comment, posted_date,
+                 ${sqlDisplayClean('comment')} AS display
+          FROM src
+        ),
+        keyed AS (
+          SELECT comment, posted_date, display,
+                 ${sqlSkeletonFinal(sqlStripContacts('display'))} AS skeleton
+          FROM disp
+        ),
+        final AS (
+          SELECT comment, posted_date, display, ${keyExpr} AS k
+          FROM keyed
+        )`;
+
+      const [totals, clusters] = await Promise.all([
+        runQuery<{ total: number; unique: number; empty: number }>(`
+          ${base}
+          SELECT COUNT(*) AS total,
+                 COUNT(DISTINCT k) AS unique,
+                 COUNT(*) FILTER (WHERE comment IS NULL OR TRIM(comment) = '') AS empty
+          FROM final
+        `),
+        runQuery<{ hash: string; n: number; sample: string; firstDay: string; lastDay: string }>(`
+          ${base}
+          SELECT k AS hash,
+                 COUNT(*) AS n,
+                 LEFT(ANY_VALUE(display), 1200) AS sample,
+                 strftime(MIN(TRY_CAST(posted_date AS DATE)), '%Y-%m-%d') AS firstDay,
+                 strftime(MAX(TRY_CAST(posted_date AS DATE)), '%Y-%m-%d') AS lastDay
+          FROM final
+          WHERE comment IS NOT NULL AND TRIM(comment) <> ''
+          GROUP BY 1
+          ORDER BY n DESC
+          LIMIT 20
+        `),
+      ]);
+
+      return {
+        totals: {
+          total: Number(totals[0]?.total ?? 0),
+          unique: Number(totals[0]?.unique ?? 0),
+          empty: Number(totals[0]?.empty ?? 0),
+        },
         clusters: clusters.map(r => ({ ...r, n: Number(r.n), sample: stripQuotes(r.sample) })),
       };
     },
@@ -1016,6 +1189,230 @@ export function useDuckDBService() {
     [runQuery, isReady]
   );
 
+  /* ───────────── IA recast: discovery + agency/docket/document ───────────── */
+
+  /**
+   * DiscoveryRail signals — one focused query per signal kind, each capped to
+   * the top few. See src/components/feed/discovery/signals.ts for the registry
+   * that renders these.
+   *
+   *   surge    — biggest recent-month comment jump (comments_index delta). The
+   *              data mirror is a snapshot, so the finest real "recent" grain is
+   *              the monthly partition count, not a literal 7-day window.
+   *   closing  — comment window closing within 3 days (feed_summary).
+   *   spike    — agency document output in the last 30d ≥ 2× its prior-year
+   *              monthly mean (documents).
+   *   discussed— highest all-time comment_count (feed_summary).
+   */
+  const getDiscoverySignals = useCallback(
+    async (perKind = 3): Promise<{
+      surge: { docketId: string; agencyCode: string; title: string; recentCount: number; prevCount: number; delta: number }[];
+      closing: { docketId: string; agencyCode: string; title: string; commentEndDate: string; commentCount: number }[];
+      spike: { agencyCode: string; recent30d: number; baselineMonthlyMean: number; ratio: number }[];
+      discussed: { docketId: string; agencyCode: string; title: string; commentCount: number }[];
+    }> => {
+      if (!isReady) throw new Error('DuckDB not ready');
+
+      const [surgeRows, closingRows, spikeRows, discussedRows] = await Promise.all([
+        runQuery<{ docket_id: string; agency_code: string; title: string; recent_n: number; prev_n: number; delta: number }>(`
+          WITH mx AS (SELECT MAX(year*12+(month-1)) AS m FROM ${commentsIndexRef()}),
+          agg AS (
+            SELECT docket_id, agency_code,
+              CAST(SUM(row_count) FILTER (WHERE year*12+(month-1) = (SELECT m FROM mx)) AS BIGINT) AS recent_n,
+              CAST(SUM(row_count) FILTER (WHERE year*12+(month-1) = (SELECT m FROM mx)-1) AS BIGINT) AS prev_n
+            FROM ${commentsIndexRef()}
+            WHERE year*12+(month-1) >= (SELECT m FROM mx)-1
+            GROUP BY 1, 2
+          )
+          SELECT a.docket_id, a.agency_code, fs.title AS title,
+                 a.recent_n, COALESCE(a.prev_n, 0) AS prev_n,
+                 (a.recent_n - COALESCE(a.prev_n, 0)) AS delta
+          FROM agg a
+          LEFT JOIN ${feedSummaryRef()} fs USING (docket_id)
+          WHERE a.recent_n > 0
+          ORDER BY delta DESC
+          LIMIT ${perKind}
+        `),
+        runQuery<{ docket_id: string; agency_code: string; title: string; comment_end_date: string; comment_count: number }>(`
+          SELECT docket_id, agency_code, title, comment_end_date, comment_count
+          FROM ${feedSummaryRef()}
+          WHERE TRY_CAST(comment_end_date AS TIMESTAMP)
+                BETWEEN CAST(NOW() AS TIMESTAMP) AND CAST(NOW() AS TIMESTAMP) + INTERVAL '3' DAY
+          ORDER BY comment_end_date ASC
+          LIMIT ${perKind}
+        `),
+        runQuery<{ agency_code: string; recent_30d: number; baseline: number; ratio: number }>(`
+          WITH per AS (
+            SELECT agency_code,
+              COUNT(*) FILTER (WHERE TRY_CAST(posted_date AS TIMESTAMP) >= CAST(NOW() AS TIMESTAMP) - INTERVAL '30' DAY) AS recent_30d,
+              COUNT(*) FILTER (WHERE TRY_CAST(posted_date AS TIMESTAMP) >= CAST(NOW() AS TIMESTAMP) - INTERVAL '13' MONTH
+                                AND TRY_CAST(posted_date AS TIMESTAMP) < CAST(NOW() AS TIMESTAMP) - INTERVAL '1' MONTH) AS prior_yr
+            FROM ${parquetRef('documents' as RegulationsDataTypes)}
+            WHERE TRY_CAST(posted_date AS TIMESTAMP) >= CAST(NOW() AS TIMESTAMP) - INTERVAL '13' MONTH
+              AND agency_code IS NOT NULL
+            GROUP BY 1
+          )
+          SELECT agency_code, recent_30d, (prior_yr / 12.0) AS baseline,
+                 (recent_30d / NULLIF(prior_yr / 12.0, 0)) AS ratio
+          FROM per
+          WHERE prior_yr >= 24
+            AND (recent_30d / NULLIF(prior_yr / 12.0, 0)) >= 2.0
+          ORDER BY ratio DESC
+          LIMIT ${perKind}
+        `),
+        runQuery<{ docket_id: string; agency_code: string; title: string; comment_count: number }>(`
+          SELECT docket_id, agency_code, title, comment_count
+          FROM ${feedSummaryRef()}
+          ORDER BY comment_count DESC
+          LIMIT ${perKind}
+        `),
+      ]);
+
+      return {
+        surge: surgeRows.map(r => ({
+          docketId: stripQuotes(r.docket_id), agencyCode: stripQuotes(r.agency_code),
+          title: stripQuotes(r.title), recentCount: Number(r.recent_n),
+          prevCount: Number(r.prev_n), delta: Number(r.delta),
+        })),
+        closing: closingRows.map(r => ({
+          docketId: stripQuotes(r.docket_id), agencyCode: stripQuotes(r.agency_code),
+          title: stripQuotes(r.title), commentEndDate: stripQuotes(r.comment_end_date),
+          commentCount: Number(r.comment_count),
+        })),
+        spike: spikeRows.map(r => ({
+          agencyCode: stripQuotes(r.agency_code), recent30d: Number(r.recent_30d),
+          baselineMonthlyMean: Number(r.baseline), ratio: Number(r.ratio),
+        })),
+        discussed: discussedRows.map(r => ({
+          docketId: stripQuotes(r.docket_id), agencyCode: stripQuotes(r.agency_code),
+          title: stripQuotes(r.title), commentCount: Number(r.comment_count),
+        })),
+      };
+    },
+    [runQuery, isReady]
+  );
+
+  /** Daily comment volume for one docket — drives the Comments-tab area chart. */
+  const getCommentVolumeByDay = useCallback(
+    async (docketId: string): Promise<{ day: string; n: number }[]> => {
+      if (!isReady) throw new Error('DuckDB not ready');
+      const cleanId = stripQuotes(docketId).toUpperCase();
+      const agency = cleanId.split('-')[0];
+      const source = await buildCommentsSource(agency, cleanId);
+      if (!source) return [];
+
+      const rows = await runQuery<{ day: string; n: number }>(`
+        SELECT strftime(date_trunc('day', TRY_CAST(posted_date AS DATE)), '%Y-%m-%d') AS day,
+               COUNT(*) AS n
+        FROM ${source}
+        WHERE docket_id = '${sqlStr(cleanId)}'
+          AND TRY_CAST(posted_date AS DATE) IS NOT NULL
+        GROUP BY 1
+        ORDER BY 1
+      `);
+      return rows.map(r => ({ day: r.day, n: Number(r.n) }));
+    },
+    [runQuery, isReady, buildCommentsSource]
+  );
+
+  /**
+   * A single document by ID, for the Document page. Attachments aren't a
+   * separate table in the mirror — documents.parquet carries one `file_url`
+   * per row (often null), so the Document page derives a 0-or-1 attachment
+   * list from it.
+   */
+  const getDocumentById = useCallback(
+    async (docId: string): Promise<Record<string, any> | null> => {
+      if (!isReady) throw new Error('DuckDB not ready');
+      const cleanId = stripQuotes(docId);
+      if (!cleanId) return null;
+      const rows = await runQuery<Record<string, any>>(`
+        SELECT document_id, docket_id, agency_code, title, document_type,
+               posted_date, modify_date, comment_start_date, comment_end_date, file_url
+        FROM ${parquetRef('documents' as RegulationsDataTypes)}
+        WHERE document_id = '${sqlStr(cleanId)}'
+        LIMIT 1
+      `);
+      return rows[0] ?? null;
+    },
+    [runQuery, isReady]
+  );
+
+  /** Open rulemakings for an agency: comment window still open, soonest first. */
+  const getOpenRulemakings = useCallback(
+    async (agencyCode: string, limit = 20): Promise<any[]> => {
+      if (!isReady) throw new Error('DuckDB not ready');
+      const upper = agencyCode.toUpperCase();
+      return runQuery<any>(`
+        SELECT docket_id, agency_code, title, abstract, comment_count, comment_end_date, docket_type
+        FROM ${feedSummaryRef()}
+        WHERE agency_code = '${sqlStr(upper)}'
+          AND TRY_CAST(comment_end_date AS TIMESTAMP) > CAST(NOW() AS TIMESTAMP)
+        ORDER BY comment_end_date ASC
+        LIMIT ${limit}
+      `);
+    },
+    [runQuery, isReady]
+  );
+
+  /** An agency's most-commented dockets (all-time), highest first. */
+  const getTopDocketsByComments = useCallback(
+    async (agencyCode: string, limit = 10): Promise<any[]> => {
+      if (!isReady) throw new Error('DuckDB not ready');
+      const upper = agencyCode.toUpperCase();
+      return runQuery<any>(`
+        SELECT docket_id, agency_code, title, abstract, comment_count, comment_end_date, docket_type
+        FROM ${feedSummaryRef()}
+        WHERE agency_code = '${sqlStr(upper)}'
+        ORDER BY comment_count DESC
+        LIMIT ${limit}
+      `);
+    },
+    [runQuery, isReady]
+  );
+
+  /**
+   * Monthly document volume for multiple agencies in one query — backs the
+   * Agencies directory sparklines (one call, no per-row fan-out). Returns a
+   * Map keyed by agency code; each value is the sparse ascending month series.
+   */
+  const getAgencyMonthlyVolumeBatch = useCallback(
+    async (codes: string[], months = 12): Promise<Map<string, { month: string; n: number }[]>> => {
+      if (!isReady) throw new Error('DuckDB not ready');
+      const result = new Map<string, { month: string; n: number }[]>();
+      if (codes.length === 0) return result;
+
+      const list = codes.map(c => `'${sqlStr(c.toUpperCase())}'`).join(',');
+      const rows = await runQuery<{ agency_code: string; month: string; n: number }>(`
+        SELECT agency_code,
+               strftime(date_trunc('month', TRY_CAST(posted_date AS DATE)), '%Y-%m') AS month,
+               COUNT(*) AS n
+        FROM ${parquetRef('documents' as RegulationsDataTypes)}
+        WHERE agency_code IN (${list})
+          AND TRY_CAST(posted_date AS DATE) >= date_trunc('month', CURRENT_DATE) - INTERVAL '${months - 1}' MONTH
+        GROUP BY 1, 2
+        ORDER BY 1, 2
+      `);
+
+      for (const code of codes) result.set(code.toUpperCase(), []);
+      for (const r of rows) {
+        const series = result.get(stripQuotes(r.agency_code).toUpperCase());
+        if (series) series.push({ month: r.month, n: Number(r.n) });
+      }
+      return result;
+    },
+    [runQuery, isReady]
+  );
+
+  /** Single-agency monthly document volume — thin wrapper over the batch. */
+  const getAgencyMonthlyVolume = useCallback(
+    async (agencyCode: string, months = 12): Promise<{ month: string; n: number }[]> => {
+      const map = await getAgencyMonthlyVolumeBatch([agencyCode], months);
+      return map.get(agencyCode.toUpperCase()) ?? [];
+    },
+    [getAgencyMonthlyVolumeBatch]
+  );
+
   return {
     getData,
     getDataCount,
@@ -1036,7 +1433,16 @@ export function useDuckDBService() {
     searchFederalRegister,
     getDocumentCountsByAgencyMonth,
     getCommentVolumeAndClusters,
+    getCommentClustersMultiTier,
+    getRandomDocketsWithComments,
     getRulemakingLifecycles,
+    getDiscoverySignals,
+    getCommentVolumeByDay,
+    getDocumentById,
+    getOpenRulemakings,
+    getTopDocketsByComments,
+    getAgencyMonthlyVolume,
+    getAgencyMonthlyVolumeBatch,
     isReady,
   };
 }
