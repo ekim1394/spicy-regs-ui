@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
+import { SectionLabel } from '@/components/ui/SectionLabel';
 import { MiniFRCard } from './MiniFRCard';
 import type { FederalRegisterDoc } from '@/lib/fr/types';
 
@@ -44,11 +45,9 @@ export function RelatedFederalRegister({ docketId }: RelatedFederalRegisterProps
   if (docs.length === 0) return null;
 
   return (
-    <section className="mt-4">
-      <h3 className="text-sm font-semibold text-[var(--muted)] mb-2 px-1">
-        Federal Register Publications
-      </h3>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+    <section>
+      <SectionLabel label="Federal Register publications" caption={docs.length} className="mb-2" />
+      <div className="flex flex-col gap-2">
         {docs.map((d) => (
           <MiniFRCard key={d.documentNumber} doc={d} />
         ))}

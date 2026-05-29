@@ -64,82 +64,82 @@ export function FeedFilters({
 
   // FilterSelect expects { value, label }; the feedFilters module emits
   // { key, label }. Adapt once, memoized, instead of inline at each call.
+  // The default ("All …") option shows a short dimension name on the trigger
+  // (e.g. "Date"), so the resting filter bar fits on one line; the menu keeps
+  // the descriptive "All Time" label.
   const dateOptions = useMemo(
-    () => DATE_OPTIONS.map(o => ({ value: o.key, label: o.label })),
+    () => DATE_OPTIONS.map(o => ({
+      value: o.key, label: o.label, ...(o.key === '' ? { triggerLabel: 'Date' } : {}),
+    })),
     [],
   );
   const typeOptions = useMemo(
-    () => DOCKET_TYPE_OPTIONS.map(o => ({ value: o.key, label: o.label })),
+    () => DOCKET_TYPE_OPTIONS.map(o => ({
+      value: o.key, label: o.label, ...(o.key === '' ? { triggerLabel: 'Type' } : {}),
+    })),
     [],
   );
   const statusOptions = useMemo(
-    () => STATUS_OPTIONS.map(o => ({ value: o.key, label: o.label })),
+    () => STATUS_OPTIONS.map(o => ({
+      value: o.key, label: o.label, ...(o.key === 'all' ? { triggerLabel: 'Status' } : {}),
+    })),
     [],
   );
 
   return (
-    <div className="flex flex-col gap-3">
-      {/* Row 1: dropdowns */}
-      <div className="flex items-center gap-3 flex-wrap">
-        {showTopics && <TopicFilter topic={topic} onTopicChange={onTopicChange} />}
+    // One row: sort chips · (divider) · filter dropdowns · FR toggle chip.
+    // Collapsing the old two-row split removes the "which row does what?"
+    // ambiguity; the divider keeps sort visually distinct from the filters.
+    <div className="flex items-center gap-2 flex-wrap">
+      {/* Sort — New / Popular; the Status dropdown owns Open / Closed */}
+      {SORT_CHIP_OPTIONS.map(opt => (
+        <button
+          key={opt.key}
+          onClick={() => onSortChange(opt.key)}
+          className={`filter-chip ${sortBy === opt.key ? 'filter-chip-active' : ''}`}
+        >
+          {opt.label}
+        </button>
+      ))}
 
-        <FilterSelect<DateRange>
-          value={dateRange}
-          onValueChange={onDateRangeChange}
-          options={dateOptions}
-          ariaLabel="Filter by date range"
-        />
+      <span aria-hidden className="self-stretch w-px bg-[var(--border)] mx-1 my-0.5" />
 
-        <FilterSelect<DocketType>
-          value={docketType}
-          onValueChange={onDocketTypeChange}
-          options={typeOptions}
-          ariaLabel="Filter by docket type"
-        />
+      {showTopics && <TopicFilter topic={topic} onTopicChange={onTopicChange} />}
 
-        <FilterSelect<StatusOption>
-          value={sortToStatus(sortBy)}
-          onValueChange={(s) => onSortChange(statusToSort(s, sortBy))}
-          options={statusOptions}
-          ariaLabel="Filter by comment period status"
-        />
+      <FilterSelect<DateRange>
+        value={dateRange}
+        onValueChange={onDateRangeChange}
+        options={dateOptions}
+        ariaLabel="Filter by date range"
+      />
 
-        {showFRToggle && (
-          <button
-            type="button"
-            role="switch"
-            aria-checked={includeFR}
-            onClick={() => onIncludeFRChange!(!includeFR)}
-            className="ml-auto inline-flex items-center gap-2 text-xs text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-          >
-            <span
-              className={`relative inline-block w-8 h-4 rounded-full transition-colors ${
-                includeFR ? 'bg-[var(--accent-primary)]' : 'bg-[var(--border)]'
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${
-                  includeFR ? 'right-0.5' : 'left-0.5'
-                }`}
-              />
-            </span>
-            include Federal Register
-          </button>
-        )}
-      </div>
+      <FilterSelect<DocketType>
+        value={docketType}
+        onValueChange={onDocketTypeChange}
+        options={typeOptions}
+        ariaLabel="Filter by docket type"
+      />
 
-      {/* Row 2: Sort Chips — only New / Popular; status dropdown handles Open / Closed */}
-      <div className="flex items-center gap-1.5">
-        {SORT_CHIP_OPTIONS.map(opt => (
-          <button
-            key={opt.key}
-            onClick={() => onSortChange(opt.key)}
-            className={`filter-chip ${sortBy === opt.key ? 'filter-chip-active' : ''}`}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
+      <FilterSelect<StatusOption>
+        value={sortToStatus(sortBy)}
+        onValueChange={(s) => onSortChange(statusToSort(s, sortBy))}
+        options={statusOptions}
+        ariaLabel="Filter by comment period status"
+      />
+
+      {/* Federal Register: a standard toggle chip (active = included), not a
+          bespoke switch — keeps one control vocabulary across the bar. */}
+      {showFRToggle && (
+        <button
+          type="button"
+          role="switch"
+          aria-checked={includeFR}
+          onClick={() => onIncludeFRChange!(!includeFR)}
+          className={`filter-chip ${includeFR ? 'filter-chip-active' : ''}`}
+        >
+          Federal Register
+        </button>
+      )}
     </div>
   );
 }

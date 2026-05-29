@@ -12,13 +12,14 @@ interface TopicFilterProps {
 export function TopicFilter({ topic, onTopicChange }: TopicFilterProps) {
   const options = useMemo(
     () =>
+      // Emoji topic taxonomy retired (clashed with the thin Lucide line-icon
+      // system) — topic chips are now plain text. See design-system README.
       TOPIC_OPTIONS.map(o => ({
         value: o.key,
-        label: (
-          <>
-            {o.emoji} {o.label}
-          </>
-        ),
+        label: o.label,
+        // Default "All Topics" shows as the short "Topic" on the trigger so the
+        // filter bar stays on one line; the menu keeps the full label.
+        ...(o.key === '' ? { triggerLabel: 'Topic' } : {}),
       })),
     [],
   );

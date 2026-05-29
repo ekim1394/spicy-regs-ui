@@ -69,24 +69,34 @@ export function DocketPost({
   return (
     <Card asChild variant="post">
       <article>
-      <div className="p-5">
+      <div className="p-5 pb-4">
         {/* Header: Agency + Title */}
         <div className="flex items-start gap-3 mb-3">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 text-sm mb-1">
+            {/* Metadata line — one consistent treatment (sans, text-xs, muted);
+                the agency's brand color is the only differentiator since it's
+                the link/anchor. Docket type sits here too: it's categorical
+                metadata, not a time-sensitive signal. */}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs mb-1">
               <Link
                 href={`/sr/${agencyCode}`}
-                className="font-semibold hover:underline"
+                className="font-medium hover:underline"
                 style={{ color: agency.color }}
               >
                 sr/{agencyCode}
               </Link>
               <span className="text-[var(--muted)]">·</span>
-              <span className="font-mono-id text-[var(--muted)]">{docketId}</span>
+              <span className="text-[var(--muted)]">{docketId}</span>
+              {docketType && (
+                <>
+                  <span className="text-[var(--muted)]">·</span>
+                  <span className="text-[var(--muted)]">{docketType}</span>
+                </>
+              )}
               {(dateCreated || modifyDate) && (
                 <>
                   <span className="text-[var(--muted)]">·</span>
-                  <span className="text-[var(--muted)] text-xs">
+                  <span className="text-[var(--muted)]">
                     {dateCreated ? timeAgo(dateCreated) : timeAgo(modifyDate)}
                   </span>
                 </>
@@ -100,21 +110,23 @@ export function DocketPost({
               {title}
             </Link>
 
-            {/* Badges */}
-            <div className="flex items-center gap-2 mt-1.5">
-              {docketType && <Badge>{docketType}</Badge>}
-              {isOpenForComment && commentEndDate && (
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="text-xs font-medium text-[var(--muted)]">Open for Comment ·</span>
-                  <StatusTag commentEndDate={commentEndDate} />
-                </span>
-              )}
-              {!isOpenForComment && isRecentlyClosed && daysSinceClosed !== null && (
-                <Badge dot>
-                  Recently Closed · {daysSinceClosed === 0 ? 'today' : `${daysSinceClosed}d ago`}
-                </Badge>
-              )}
-            </div>
+            {/* Time-sensitive status — its own line so the "act now" signal
+                doesn't compete with the categorical metadata above. */}
+            {(isOpenForComment || isRecentlyClosed) && (
+              <div className="flex items-center gap-2 mt-1.5">
+                {isOpenForComment && commentEndDate && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="text-xs font-medium text-[var(--muted)]">Open for Comment ·</span>
+                    <StatusTag commentEndDate={commentEndDate} />
+                  </span>
+                )}
+                {!isOpenForComment && isRecentlyClosed && daysSinceClosed !== null && (
+                  <Badge dot>
+                    Recently Closed · {daysSinceClosed === 0 ? 'today' : `${daysSinceClosed}d ago`}
+                  </Badge>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -159,31 +171,23 @@ export function DocketPost({
           </div>
         )}
 
-        {/* Metadata Row */}
-        <div className="flex items-center gap-4 mt-4 text-xs text-[var(--muted)]">
+        {/* Action Bar — single canonical comment indicator (count baked into
+            the link), docs as muted inline context, regulations.gov trailing. */}
+        <div className="flex items-center gap-3 mt-3 pt-3 border-t border-[var(--border)]">
+          <Link
+            href={`/sr/${agencyCode}/${encodeURIComponent(docketId)}`}
+            className="action-btn"
+          >
+            <MessageSquare size={16} />
+            {commentCount > 0 ? `${formatCount(commentCount)} comments` : 'Comments'}
+          </Link>
+
           {documentCount > 0 && (
             <span className="metadata-pill">
               <FileText size={12} />
               {formatCount(documentCount)} docs
             </span>
           )}
-          {commentCount > 0 && (
-            <span className="metadata-pill">
-              <MessageSquare size={12} />
-              {formatCount(commentCount)} comments
-            </span>
-          )}
-        </div>
-
-        {/* Action Bar */}
-        <div className="flex items-center gap-1 mt-3 pt-3 border-t border-[var(--border)]">
-          <Link
-            href={`/sr/${agencyCode}/${encodeURIComponent(docketId)}`}
-            className="action-btn"
-          >
-            <MessageSquare size={16} />
-            Comments
-          </Link>
 
           <a
             href={regsDotGovUrl}

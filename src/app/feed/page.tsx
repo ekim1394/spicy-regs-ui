@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Virtuoso } from 'react-virtuoso';
 import { PageShell } from '@/components/ui/PageShell';
+import { SectionLabel } from '@/components/ui/SectionLabel';
 import { DocketPost } from '@/components/feed/DocketPost';
 import { FederalRegisterPost } from '@/components/feed/FederalRegisterPost';
 import { FeedFilters } from '@/components/feed/FeedFilters';
@@ -50,7 +51,7 @@ function tsOf(date: string | null | undefined): number {
 }
 
 function DocketFeed() {
-  const { getRecentDocketsWithCounts, getRecentFederalRegister, isReady } = useDuckDBService();
+  const { getRecentDocketsWithCounts, getRecentFederalRegister, getFeedCount, isReady } = useDuckDBService();
 
   const [dockets, setDockets] = useState<Record<string, any>[]>([]);
   const [frDocs, setFrDocs] = useState<FederalRegisterDoc[]>([]);
@@ -61,6 +62,9 @@ function DocketFeed() {
   const [docketHasMore, setDocketHasMore] = useState(true);
   const [frHasMore, setFrHasMore] = useState(true);
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  // Total matching dockets for the active filters — drives the feed header count.
+  // Null until the first count resolves so we don't flash a "0 dockets".
+  const [totalCount, setTotalCount] = useState<number | null>(null);
   // Monotonic load token — lets a newer load() discard a stale in-flight response.
   const reqRef = useRef(0);
 
@@ -160,6 +164,26 @@ function DocketFeed() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isReady, selectedAgency, sortBy, dateRange, docketType, topic, interleaveFR]);
 
+  // Total matching-docket count for the header. Mirrors the feed's filters
+  // (sort matters: open/closed change membership). FR rows aren't counted —
+  // the header reads "N dockets". A stale-token guard keeps a fast filter
+  // switch from leaving an out-of-date number.
+  useEffect(() => {
+    if (!isReady) return;
+    let cancelled = false;
+    setTotalCount(null);
+    getFeedCount({
+      agencyCode: selectedAgency || undefined,
+      sortBy,
+      dateRange: dateRange || undefined,
+      docketType: docketType || undefined,
+      topic: topic || undefined,
+    })
+      .then((n) => { if (!cancelled) setTotalCount(n); })
+      .catch((err) => console.error('Failed to load feed count:', err));
+    return () => { cancelled = true; };
+  }, [isReady, selectedAgency, sortBy, dateRange, docketType, topic, getFeedCount]);
+
   // De-duplicate dockets by id.
   const uniqueDockets = useMemo(() => {
     const seen = new Set<string>();
@@ -222,22 +246,37 @@ function DocketFeed() {
       {/* Discovery rail — hides when a filter narrows the feed. */}
       <DiscoveryRail filtersActive={filtersActive} />
 
-      {/* Agency filter indicator — the feed has no agency control of its own;
-          this is reached via the agency profile's "View all dockets →" CTA
-          (/feed?agency=CODE), so make the filtered state legible + clearable. */}
-      {selectedAgency && (
-        <div className="mb-4 flex items-center gap-2 text-sm">
-          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[var(--surface-elevated)] border border-[var(--border)]">
-            <span className="text-[var(--muted)]">Dockets from</span>
-            <Link href={`/sr/${selectedAgency}`} className="font-semibold" style={{ color: 'var(--accent-primary)' }}>
-              sr/{selectedAgency}
-            </Link>
-          </span>
-          <Link href="/feed" className="text-xs text-[var(--muted)] hover:text-[var(--foreground)]">
+      {/* Feed header — names the river (sibling of "Notable activity") and gives
+          the filters below it a home. Carries a live count so the filters have
+          visible feedback, and absorbs the agency-scoped state: the feed has no
+          agency control of its own, it's reached via the agency profile's
+          "View all dockets →" CTA (/feed?agency=CODE), so keep it clearable. */}
+      <div className="mb-2.5 flex items-baseline justify-between gap-3">
+        <SectionLabel
+          label={
+            selectedAgency ? (
+              <>
+                Dockets from{' '}
+                <Link href={`/sr/${selectedAgency}`} className="normal-case" style={{ color: 'var(--accent-primary)' }}>
+                  sr/{selectedAgency}
+                </Link>
+              </>
+            ) : (
+              'All rulemaking'
+            )
+          }
+          caption={
+            totalCount !== null
+              ? `${totalCount.toLocaleString()} ${totalCount === 1 ? 'docket' : 'dockets'}`
+              : undefined
+          }
+        />
+        {selectedAgency && (
+          <Link href="/feed" className="text-xs text-[var(--muted)] hover:text-[var(--foreground)] whitespace-nowrap">
             Clear ✕
           </Link>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Filter Bar — always visible */}
       <div className="mb-6 p-4 bg-[var(--surface)] rounded-xl border border-[var(--border)]">

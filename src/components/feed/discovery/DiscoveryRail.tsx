@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
+import { SectionLabel } from '@/components/ui/SectionLabel';
 import { flattenSignals, type DiscoverySignal } from './signals';
 import { SignalCard } from './SignalCard';
 
@@ -38,14 +39,11 @@ export function DiscoveryRail({ filtersActive = false }: DiscoveryRailProps) {
 
   return (
     <section className="mb-4">
-      <div className="flex items-baseline gap-2.5 mb-2.5">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
-          Worth a look
-        </span>
-        <span className="text-[10.5px] text-[var(--muted-foreground)]">
-          signals across the data · refreshed daily
-        </span>
-      </div>
+      <SectionLabel
+        label="Notable activity"
+        caption="comment surges, closing windows, and the most-discussed dockets · updated daily"
+        className="mb-2.5"
+      />
       <div className="flex gap-2.5 overflow-x-auto pb-1 -mx-1 px-1">
         {signals.map((signal, i) => (
           <SignalCard key={`${signal.kind}-${i}`} signal={signal} />

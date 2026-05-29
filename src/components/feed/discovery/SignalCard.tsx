@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { Avatar } from '@/components/ui/Avatar';
+import { Card } from '@/components/ui/Card';
+import { SectionLabel } from '@/components/ui/SectionLabel';
 import { getAgencyInfo } from '@/lib/agencyMetadata';
 import {
   type DiscoverySignal,
@@ -36,13 +38,12 @@ export function SignalCard({ signal }: { signal: DiscoverySignal }) {
   const title = signalTitle(signal);
 
   return (
-    <Link
-      href={signalHref(signal)}
-      className="group flex-none w-[180px] flex flex-col gap-2.5 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-3 hover:border-[var(--accent-primary)] transition-colors"
-    >
-      <div className="text-[8.5px] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
-        {meta.eyebrow}
-      </div>
+    <Card asChild>
+      <Link
+        href={signalHref(signal)}
+        className="group flex-none w-[180px] flex flex-col gap-2.5 p-3"
+      >
+        <SectionLabel label={meta.eyebrow} />
 
       <div className="flex items-center gap-1.5">
         <Avatar name={agency.name} src={agency.favicon} color={agency.color} fallback={agency.shortName} size="xs" />
@@ -63,6 +64,7 @@ export function SignalCard({ signal }: { signal: DiscoverySignal }) {
       <div className="mt-auto pt-0.5 text-[9.5px] text-[var(--muted-foreground)] group-hover:text-[var(--accent-primary)] transition-colors">
         → {meta.facet}
       </div>
-    </Link>
+      </Link>
+    </Card>
   );
 }

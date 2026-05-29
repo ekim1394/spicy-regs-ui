@@ -64,19 +64,19 @@ export function FederalRegisterPost({ doc, dashed = false }: FederalRegisterPost
   return (
     <Card
       asChild
-      className="p-4 hover:border-[var(--accent-primary)]/40 transition-colors"
+      className="p-4"
       style={dashed ? { borderStyle: 'dashed', background: 'var(--surface-elevated)' } : undefined}
     >
       <article>
       {/* Header strip: agencies · type · date */}
       <div className="flex items-center gap-2 mb-1.5 text-xs text-[var(--muted)] flex-wrap">
         {dashed && (
-          <Badge variant="code" size="xs" className="!bg-[var(--surface-raised)] !text-[var(--muted)]">
+          <Badge variant="code" size="xs">
             Federal Register
           </Badge>
         )}
         {agencies.slice(0, 3).map((slug) => (
-          <Badge key={slug} variant="code" size="xs" className="!text-[var(--accent-primary)]">
+          <Badge key={slug} variant="code" size="xs" className="text-[var(--accent-primary)]">
             {slug}
           </Badge>
         ))}
@@ -136,7 +136,7 @@ export function FederalRegisterPost({ doc, dashed = false }: FederalRegisterPost
           {doc.docketIds.slice(0, 4).map((d) => {
             const agency = d.split('-')[0] || '';
             return (
-              <Badge key={d} variant="code" size="xs" className="!text-[var(--accent-primary)] hover:underline cursor-pointer" asChild>
+              <Badge key={d} variant="code" size="xs" className="text-[var(--accent-primary)] hover:underline cursor-pointer" asChild>
                 <Link href={`/sr/${agency}/${encodeURIComponent(d)}`}>
                   {d}
                 </Link>
