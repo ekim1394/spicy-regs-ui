@@ -10,7 +10,7 @@ import { LifecyclePanel } from '@/components/lab/LifecyclePanel';
 export default function LabPage() {
   return (
     <div className="min-h-screen bg-[var(--background)]">
-      <Header />
+      <Header maxWidthClass="max-w-6xl" />
       <main className="max-w-6xl mx-auto px-4 py-8">
         <div className="mb-8">
           <div className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-[0.12em] text-[var(--accent-amber)] mb-3 font-semibold">

@@ -28,7 +28,10 @@ const firaCode = Fira_Code({
 });
 
 export const metadata: Metadata = {
-  title: "spicy regs",
+  title: {
+    default: "SpicyRegs",
+    template: "%s | SpicyRegs",
+  },
   description: "spicy regs is an open source civic tech project that creates a platform using regulations.gov data for consumers to extend",
 };
 

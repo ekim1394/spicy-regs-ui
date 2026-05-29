@@ -17,7 +17,7 @@ export interface ContentPageProps {
  */
 export function ContentPage({ eyebrow, title, lede, children }: ContentPageProps) {
   return (
-    <PageShell mainClassName="max-w-2xl mx-auto px-4 py-10">
+    <PageShell maxWidth="2xl" mainClassName="max-w-2xl mx-auto px-4 py-10">
       {eyebrow && (
         <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
           {eyebrow}
