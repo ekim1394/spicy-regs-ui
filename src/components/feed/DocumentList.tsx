@@ -1,15 +1,22 @@
 'use client';
 
-import { FileText, Download, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
+import { FileText, Download } from 'lucide-react';
 import { timeAgo } from '@/lib/agencyMetadata';
 import { stripQuotes } from '@/lib/utils/fieldFormat';
 
 interface DocumentListProps {
   documents: any[];
   loading?: boolean;
+  /**
+   * When provided, each document title links to its Document page at
+   * /sr/{agencyCode}/{docketId}/{documentId}. Omit to render plain titles.
+   */
+  agencyCode?: string;
+  docketId?: string;
 }
 
-export function DocumentList({ documents, loading = false }: DocumentListProps) {
+export function DocumentList({ documents, loading = false, agencyCode, docketId }: DocumentListProps) {
   if (loading) {
     return (
       <div className="document-list">
@@ -72,9 +79,18 @@ export function DocumentList({ documents, loading = false }: DocumentListProps) 
                   </div>
 
                   {/* Title */}
-                  <p className="text-sm font-medium text-[var(--foreground)] leading-snug">
-                    {title}
-                  </p>
+                  {agencyCode && docketId ? (
+                    <Link
+                      href={`/sr/${agencyCode}/${encodeURIComponent(docketId)}/${encodeURIComponent(docId)}`}
+                      className="text-sm font-medium text-[var(--foreground)] leading-snug hover:text-[var(--accent-primary)] transition-colors"
+                    >
+                      {title}
+                    </Link>
+                  ) : (
+                    <p className="text-sm font-medium text-[var(--foreground)] leading-snug">
+                      {title}
+                    </p>
+                  )}
 
                   {/* Comment period / posted date */}
                   <div className="flex items-center gap-2 mt-1.5">
