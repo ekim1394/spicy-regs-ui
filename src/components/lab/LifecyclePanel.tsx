@@ -6,6 +6,7 @@ import { Group } from '@visx/group';
 import { Bar, Line } from '@visx/shape';
 import { scaleLinear, scaleBand } from '@visx/scale';
 import { AxisBottom, AxisLeft } from '@visx/axis';
+import { ParentSize } from '@visx/responsive';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
 import { useDuckDB } from '@/lib/duckdb/context';
 import { getAgencyInfo } from '@/lib/agencyMetadata';
@@ -31,9 +32,19 @@ const DIST_W = 860;
 const ROW_H = 38;
 const MARGIN = { top: 24, right: 110, bottom: 36, left: 64 };
 
-export function LifecyclePanel() {
+interface LifecyclePanelProps {
+  /**
+   * When set, the panel covers a SINGLE agency (the profile's lifecycle box)
+   * and skips the top-8 ranking pass. When unset, /lab behavior is preserved:
+   * rank the top 8 rulemaking agencies and chart all of them.
+   */
+  agencyCode?: string;
+}
+
+export function LifecyclePanel({ agencyCode }: LifecyclePanelProps = {}) {
   const { runQuery } = useDuckDB();
   const { getRulemakingLifecycles, isReady } = useDuckDBService();
+  const single = !!agencyCode;
 
   const [topAgencies, setTopAgencies] = useState<string[]>([]);
   const [summary, setSummary] = useState<Summary[]>([]);
@@ -46,6 +57,27 @@ export function LifecyclePanel() {
     if (!isReady) return;
     let cancelled = false;
     const R2 = 'https://pub-5fc11ad134984edf8d9af452dd1849d6.r2.dev';
+
+    // Single-agency (profile) path: no ranking pass.
+    if (agencyCode) {
+      setTopAgencies([agencyCode]);
+      getRulemakingLifecycles([agencyCode], 30, 15)
+        .then(res => {
+          if (cancelled || !res) return;
+          setSummary(res.summary);
+          setCompletedSample(res.completedSample);
+          setStuck(res.stuck);
+          setLoading(false);
+        })
+        .catch(err => {
+          if (cancelled) return;
+          console.error('LifecyclePanel:', err);
+          setError(String(err?.message ?? err));
+          setLoading(false);
+        });
+      return () => { cancelled = true; };
+    }
+
     runQuery<{ agency_code: string; n: number }>(`
       WITH props AS (
         SELECT docket_id, agency_code
@@ -82,7 +114,7 @@ export function LifecyclePanel() {
         setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [isReady, runQuery, getRulemakingLifecycles]);
+  }, [isReady, agencyCode, runQuery, getRulemakingLifecycles]);
 
   const orderedSummary = useMemo(() => {
     const order = new Map(topAgencies.map((c, i) => [c, i]));
@@ -108,7 +140,15 @@ export function LifecyclePanel() {
     return { fastest, slowest };
   }, [orderedSummary]);
 
-  const caption = (
+  const caption = single ? (
+    <>
+      A federal rule moves through a docket as a{' '}
+      <span className="font-medium">Proposed Rule</span> → public comment period →{' '}
+      <span className="font-medium">Final Rule</span>. The strip below shows{' '}
+      <span className="font-mono-id">{agencyCode}</span>&rsquo;s distribution of completed
+      rulemaking durations (days from proposal to final), with the median marked.
+    </>
+  ) : (
     <>
       A federal rule typically moves through a docket as a{' '}
       <span className="font-medium">Proposed Rule</span> → public comment period →{' '}
@@ -126,7 +166,14 @@ export function LifecyclePanel() {
         title="How long does it take to make a federal rule?"
         caption={caption}
         finding={
-          headlineFinding ? (
+          single && orderedSummary.length > 0 ? (
+            <>
+              <span className="font-mono-id">{orderedSummary[0].agency_code}</span> median{' '}
+              <strong>{Math.round(orderedSummary[0].p50)} days</strong> across{' '}
+              {orderedSummary[0].n.toLocaleString()} completed rulemakings (p10–p90:{' '}
+              {Math.round(orderedSummary[0].p10)}–{Math.round(orderedSummary[0].p90)} days).
+            </>
+          ) : headlineFinding ? (
             <>
               Fastest median: <span className="font-mono-id">{headlineFinding.fastest.agency_code}</span>{' '}
               at <strong>{Math.round(headlineFinding.fastest.p50)} days</strong> across{' '}
@@ -143,23 +190,38 @@ export function LifecyclePanel() {
 
       {!loading && !error && orderedSummary.length > 0 && (
         <>
-          <DistributionChart
-            summary={orderedSummary}
-            sampleByAgency={sampleByAgency}
-          />
+          {single ? (
+            <ParentSize>
+              {({ width }) => (
+                <DistributionChart
+                  summary={orderedSummary}
+                  sampleByAgency={sampleByAgency}
+                  width={Math.max(360, width)}
+                />
+              )}
+            </ParentSize>
+          ) : (
+            <DistributionChart
+              summary={orderedSummary}
+              sampleByAgency={sampleByAgency}
+            />
+          )}
 
+          {/* "Suspicious pending" cases — an analytical lab feature; omitted on
+              the agency profile, where Lifecycle is a quick how-long glance. */}
+          {!single && (
           <div className="mt-6">
             <div className="flex items-center gap-2 mb-2">
               <h3 className="text-base font-semibold font-serif">No Final Rule on file</h3>
               <DemoPill reason="The 'still pending' status is inferred from absence of a corresponding Final Rule document on the same docket. The upstream pipeline drops the regulations.gov 'withdrawn' flag and the RIN field, so we can't yet distinguish (a) abandoned, (b) withdrawn, (c) finalized under a sibling docket with a different ID, or (d) genuinely still open." />
             </div>
             <p className="text-xs text-[var(--muted)] mb-3 max-w-3xl leading-relaxed">
-              Proposed Rules from these eight agencies, posted between 18 months and 8 years ago,
-              that have <em>no Final Rule document</em> on the same docket. Some are genuinely
-              pending. Many were withdrawn, abandoned, or finalised under a different docket ID
-              that we can&apos;t link without the RIN field (currently dropped by the pipeline).
-              Reader beware: this list is a <em>suspicious-cases</em> list, not a confirmed
-              one.
+              Proposed Rules from {single ? <>this agency</> : <>these eight agencies</>}, posted
+              between 18 months and 8 years ago, that have <em>no Final Rule document</em> on the
+              same docket. Some are genuinely pending. Many were withdrawn, abandoned, or finalised
+              under a different docket ID that we can&apos;t link without the RIN field (currently
+              dropped by the pipeline). Reader beware: this list is a <em>suspicious-cases</em>
+              list, not a confirmed one.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
               {stuck.map(s => (
@@ -172,6 +234,7 @@ export function LifecyclePanel() {
               </p>
             )}
           </div>
+          )}
         </>
       )}
     </section>
@@ -181,12 +244,16 @@ export function LifecyclePanel() {
 function DistributionChart({
   summary,
   sampleByAgency,
+  width = DIST_W,
 }: {
   summary: Summary[];
   sampleByAgency: Map<string, Sample[]>;
+  /** Total SVG width. Defaults to the fixed lab width; the single-agency
+   *  profile passes its measured container width so the strip fits the column. */
+  width?: number;
 }) {
   const height = MARGIN.top + MARGIN.bottom + summary.length * ROW_H;
-  const innerW = DIST_W - MARGIN.left - MARGIN.right;
+  const innerW = width - MARGIN.left - MARGIN.right;
   const innerH = height - MARGIN.top - MARGIN.bottom;
 
   const xMax = useMemo(
@@ -207,7 +274,7 @@ function DistributionChart({
 
   return (
     <div className="overflow-x-auto">
-      <svg width={DIST_W} height={height} role="img" aria-label="Rulemaking duration distribution by agency">
+      <svg width={width} height={height} role="img" aria-label="Rulemaking duration distribution by agency">
         <Group left={MARGIN.left} top={MARGIN.top}>
           {/* Reference: 1 year */}
           {[365, 730, 1095, 1460].filter(d => d <= xMax).map(d => (

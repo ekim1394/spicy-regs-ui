@@ -70,9 +70,20 @@ const RENDER_TOP_N = 6;
  *  across the busiest agencies" without paying for an unbounded scan. */
 const FINDING_POOL_N = 20;
 
-export function AgencyActivityPanel() {
+interface AgencyActivityPanelProps {
+  /**
+   * When set, the panel renders a SINGLE agency's monthly Final-Rule output
+   * (the agency-profile headline) and skips the top-20 ranking pass entirely.
+   * When unset, it keeps the original /lab behavior: rank the 20 highest-volume
+   * agencies and render the top 6 by midnight-window ratio as small multiples.
+   */
+  agencyCode?: string;
+}
+
+export function AgencyActivityPanel({ agencyCode }: AgencyActivityPanelProps = {}) {
   const { runQuery } = useDuckDB();
   const { getDocumentCountsByAgencyMonth, isReady } = useDuckDBService();
+  const single = !!agencyCode;
   const [poolAgencies, setPoolAgencies] = useState<string[]>([]);
   const [rows, setRows] = useState<MonthRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,6 +93,20 @@ export function AgencyActivityPanel() {
     if (!isReady) return;
     let cancelled = false;
     const R2 = 'https://pub-5fc11ad134984edf8d9af452dd1849d6.r2.dev';
+
+    // Single-agency (profile) path: no ranking pass, just this agency's months.
+    if (agencyCode) {
+      setPoolAgencies([agencyCode]);
+      getDocumentCountsByAgencyMonth(['Rule'], '2014-01-01', [agencyCode])
+        .then(data => { if (!cancelled) { setRows(data); setLoading(false); } })
+        .catch(err => {
+          if (cancelled) return;
+          console.error('AgencyActivityPanel:', err);
+          setError(String(err?.message ?? err));
+          setLoading(false);
+        });
+      return () => { cancelled = true; };
+    }
 
     runQuery<{ agency_code: string; n: number }>(`
       SELECT agency_code, COUNT(*) AS n
@@ -109,7 +134,7 @@ export function AgencyActivityPanel() {
         setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [isReady, runQuery, getDocumentCountsByAgencyMonth]);
+  }, [isReady, agencyCode, runQuery, getDocumentCountsByAgencyMonth]);
 
   const byAgency = useMemo(() => {
     const map = new Map<string, MonthRow[]>();
@@ -169,7 +194,15 @@ export function AgencyActivityPanel() {
     return f.midnightCount > 0 && f.baselineRate > 0 ? { code, f } : null;
   }, [rankedByRatio, byAgency]);
 
-  const caption = (
+  const caption = single ? (
+    <>
+      <span className="font-medium">Final Rule</span> documents per month at{' '}
+      <span className="font-mono-id">{agencyCode}</span>, with administration eras shaded. Over a
+      multi-year window the era split becomes a real comparator — an outgoing administration&rsquo;s
+      end-of-term &ldquo;midnight regulations&rdquo; surge shows up as a late spike. Blue marks
+      Democratic administrations, red Republican; dashed lines mark each January 20 handoff.
+    </>
+  ) : (
     <>
       Outgoing presidents tend to push a backlog of finalized rules out the door in their final
       weeks. It&rsquo;s known as the &ldquo;midnight regulations&rdquo; surge. Each panel below
@@ -183,8 +216,8 @@ export function AgencyActivityPanel() {
   return (
     <section className="card-gradient p-6 mb-8">
       <PanelHeader
-        label="Regulatory output by agency"
-        title="The midnight regulation surge"
+        label={single ? 'Regulatory output · monthly' : 'Regulatory output by agency'}
+        title={single ? 'Final Rule output' : 'The midnight regulation surge'}
         caption={caption}
         finding={
           finding ? (
@@ -202,17 +235,27 @@ export function AgencyActivityPanel() {
       {error && <div className="text-sm text-[var(--accent-red)] py-2">Error: {error}</div>}
 
       {!loading && !error && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {orderedAgencies.map(code => (
-            <SmallMultiple
-              key={code}
-              agencyCode={code}
-              rows={byAgency.get(code) ?? []}
-              yMax={sharedYMax}
-              domainEnd={domainEnd}
-            />
-          ))}
-        </div>
+        single ? (
+          <SmallMultiple
+            agencyCode={agencyCode!}
+            rows={byAgency.get(agencyCode!) ?? []}
+            yMax={sharedYMax}
+            domainEnd={domainEnd}
+            height={240}
+          />
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {orderedAgencies.map(code => (
+              <SmallMultiple
+                key={code}
+                agencyCode={code}
+                rows={byAgency.get(code) ?? []}
+                yMax={sharedYMax}
+                domainEnd={domainEnd}
+              />
+            ))}
+          </div>
+        )
       )}
 
       <div className="mt-4 flex items-center gap-3 text-xs text-[var(--muted)] flex-wrap">
@@ -238,9 +281,12 @@ interface SmallMultipleProps {
   rows: MonthRow[];
   yMax: number;
   domainEnd: Date;
+  /** Chart height. Defaults to the small-multiple height; the single-agency
+   *  profile headline passes a taller value. */
+  height?: number;
 }
 
-function SmallMultiple({ agencyCode, rows, yMax, domainEnd }: SmallMultipleProps) {
+function SmallMultiple({ agencyCode, rows, yMax, domainEnd, height = MULTIPLE_H }: SmallMultipleProps) {
   const info = getAgencyInfo(agencyCode);
   const finding = useMemo(() => computeFinding(rows), [rows]);
 
@@ -281,6 +327,7 @@ function SmallMultiple({ agencyCode, rows, yMax, domainEnd }: SmallMultipleProps
               rows={rows}
               yMax={yMax}
               domainEnd={domainEnd}
+              height={height}
               width={w}
             />
           );
@@ -294,9 +341,9 @@ interface SmallMultipleChartProps extends SmallMultipleProps {
   width: number;
 }
 
-function SmallMultipleChart({ agencyCode, rows, yMax, domainEnd, width }: SmallMultipleChartProps) {
+function SmallMultipleChart({ agencyCode, rows, yMax, domainEnd, width, height = MULTIPLE_H }: SmallMultipleChartProps) {
   const innerW = width - MARGIN.left - MARGIN.right;
-  const innerH = MULTIPLE_H - MARGIN.top - MARGIN.bottom;
+  const innerH = height - MARGIN.top - MARGIN.bottom;
 
   /** This agency's last data month + 1 → use as the right edge for the admin
    *  band so the colored rectangle stops where the bars do (rather than running
@@ -329,7 +376,7 @@ function SmallMultipleChart({ agencyCode, rows, yMax, domainEnd, width }: SmallM
   const barWidth = Math.max(1, barSlot - 0.5);
 
   return (
-    <svg width={width} height={MULTIPLE_H} role="img" aria-label={`${agencyCode} final rules per month`}>
+    <svg width={width} height={height} role="img" aria-label={`${agencyCode} final rules per month`}>
       <Group left={MARGIN.left} top={MARGIN.top}>
         <AdminBands xScale={xScale} height={innerH} clampMax={agencyBandEnd} />
         {rows.map(r => {
