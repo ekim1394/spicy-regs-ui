@@ -4,6 +4,7 @@ import { Header } from '@/components/Header';
 import { FlaskConical, Info } from 'lucide-react';
 import { AgencyActivityPanel } from '@/components/lab/AgencyActivityPanel';
 import { CommentOrchestrationPanel } from '@/components/lab/CommentOrchestrationPanel';
+import { CommentFidelityPanel } from '@/components/lab/CommentFidelityPanel';
 import { LifecyclePanel } from '@/components/lab/LifecyclePanel';
 
 export default function LabPage() {
@@ -28,6 +29,7 @@ export default function LabPage() {
 
         <AgencyActivityPanel />
         <CommentOrchestrationPanel />
+        <CommentFidelityPanel />
         <LifecyclePanel />
       </main>
     </div>

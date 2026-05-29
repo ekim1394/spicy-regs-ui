@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Group } from '@visx/group';
 import { Bar } from '@visx/shape';
@@ -8,6 +8,8 @@ import { scaleTime, scaleLinear } from '@visx/scale';
 import { AxisLeft, AxisBottom } from '@visx/axis';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
 import { PanelHeader, FindingNote, DocketIdentity } from './PanelHeader';
+import { scoreStance, aggregateStance } from '@/lib/text/stance';
+import { StanceSplit, StanceChip } from './stanceViz';
 
 /**
  * Two dockets to compare:
@@ -19,13 +21,20 @@ import { PanelHeader, FindingNote, DocketIdentity } from './PanelHeader';
  *      domain known for gun-rights advocacy mass-comment campaigns. The
  *      "what does orchestration look like" case.
  */
-const DOCKETS = [
+interface DocketTab { id: string; label: string }
+
+/**
+ * The curated pair anchors the comparison; a couple of randomly-sampled dockets
+ * are appended at runtime (see CommentOrchestrationPanel) so the reader can see
+ * how the near-duplicate clustering behaves on arbitrary, uncurated dockets.
+ */
+const PRESET_DOCKETS: DocketTab[] = [
   { id: 'HUD-2026-0529', label: 'Organic' },
   { id: 'ATF-2023-0002', label: 'Orchestrated' },
-] as const;
+];
 
 interface VolumeRow { day: string; n: number }
-interface Cluster { hash: string; n: number; sample: string; firstDay: string; lastDay: string }
+export interface Cluster { hash: string; n: number; sample: string; firstDay: string; lastDay: string }
 interface Totals { total: number; unique: number; empty: number }
 interface DocketData {
   docketId: string;
@@ -69,16 +78,47 @@ function isPlaceholderCluster(c: Cluster): boolean {
 }
 
 export function CommentOrchestrationPanel() {
-  const { getCommentVolumeAndClusters, isReady } = useDuckDBService();
+  const { getCommentVolumeAndClusters, getRandomDocketsWithComments, isReady } = useDuckDBService();
   const [results, setResults] = useState<Record<string, DocketData>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [activeId, setActiveId] = useState<string>(DOCKETS[0].id);
+  const [dockets, setDockets] = useState<DocketTab[]>(PRESET_DOCKETS);
+  const [activeId, setActiveId] = useState<string>(PRESET_DOCKETS[0].id);
+  const requested = useRef<Set<string>>(new Set());
+  const randomsLoaded = useRef(false);
 
+  // Append exactly two randomly-sampled dockets after the curated pair, once.
+  // (random() returns fresh ids each call, so this MUST be one-shot — otherwise
+  // every effect re-run / StrictMode double-invoke appends another pair.)
+  useEffect(() => {
+    if (!isReady || randomsLoaded.current) return;
+    randomsLoaded.current = true;
+    let cancelled = false;
+    getRandomDocketsWithComments(2, 200, 50000)
+      .then(rows => {
+        if (cancelled) return;
+        setDockets(prev => {
+          const seen = new Set(prev.map(d => d.id));
+          const extra = rows
+            .map((r, i) => ({ id: r.docket_id.toUpperCase(), label: `Random ${i + 1}` }))
+            .filter(d => !seen.has(d.id));
+          return [...prev, ...extra];
+        });
+      })
+      .catch(err => {
+        randomsLoaded.current = false; // allow a retry on transient failure
+        console.error('CommentOrchestrationPanel random dockets:', err);
+      });
+    return () => { cancelled = true; };
+  }, [isReady, getRandomDocketsWithComments]);
+
+  // Lazily load near-duplicate clustering for every docket tab (curated + random).
   useEffect(() => {
     if (!isReady) return;
     let cancelled = false;
-    DOCKETS.forEach(({ id }) => {
-      getCommentVolumeAndClusters(id)
+    dockets.forEach(({ id }) => {
+      if (requested.current.has(id)) return;
+      requested.current.add(id);
+      getCommentVolumeAndClusters(id, 'near')
         .then(res => {
           if (cancelled) return;
           setResults(prev => ({ ...prev, [id]: { docketId: id, ...res } }));
@@ -90,7 +130,7 @@ export function CommentOrchestrationPanel() {
         });
     });
     return () => { cancelled = true; };
-  }, [isReady, getCommentVolumeAndClusters]);
+  }, [isReady, dockets, getCommentVolumeAndClusters]);
 
   return (
     <section className="card-gradient p-6 mb-8">
@@ -101,14 +141,15 @@ export function CommentOrchestrationPanel() {
           <>
             Mass comment campaigns, where thousands of identical or near-identical letters
             arrive through advocacy platforms, are now routine in federal rulemaking. For each
-            docket below, we ran an exact-text match across every public comment to separate{' '}
+            docket below, we group{' '}
             <span
-              title="A comment whose text appears verbatim on at least one other submission"
+              title="A comment that closely matches at least one other submission once formatting, names, numbers, and word order are normalized away"
               className="underline decoration-dotted underline-offset-2 cursor-help"
             >
-              form letters
+              near-identical comments
             </span>{' '}
-            from unique submissions.
+            — looking past formatting, names, numbers, and word order — to separate form letters
+            from genuinely unique submissions.
           </>
         }
       />
@@ -117,6 +158,7 @@ export function CommentOrchestrationPanel() {
         active={activeId}
         onChange={setActiveId}
         results={results}
+        dockets={dockets}
       />
 
       <div className="mt-5">
@@ -135,18 +177,20 @@ function DocketTabs({
   active,
   onChange,
   results,
+  dockets,
 }: {
   active: string;
   onChange: (id: string) => void;
   results: Record<string, DocketData>;
+  dockets: DocketTab[];
 }) {
   return (
     <div
       role="tablist"
       aria-label="Example dockets"
-      className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1 gap-1"
+      className="inline-flex flex-wrap rounded-lg border border-[var(--border)] bg-[var(--surface)] p-1 gap-1"
     >
-      {DOCKETS.map(({ id, label }) => {
+      {dockets.map(({ id, label }) => {
         const isActive = id === active;
         const data = results[id];
         return (
@@ -233,6 +277,16 @@ function DocketBody({ data }: { data: DocketData }) {
   const uniquePct = totals.total === 0 ? 0 : ((totals.total - orchestratedCount) / totals.total) * 100;
   const orchestratedPct = totals.total === 0 ? 0 : (orchestratedCount / totals.total) * 100;
 
+  // Stance, scored once per template and weighted by cluster size.
+  const stanced = useMemo(
+    () => formLetterClusters.map(c => ({ cluster: c, stance: scoreStance(c.sample) })),
+    [formLetterClusters]
+  );
+  const stanceTotals = useMemo(
+    () => aggregateStance(stanced.map(s => ({ stance: s.stance, weight: s.cluster.n }))),
+    [stanced]
+  );
+
   let finding: React.ReactNode;
   if (totals.total === 0) {
     finding = <>No comments found on this docket.</>;
@@ -248,7 +302,7 @@ function DocketBody({ data }: { data: DocketData }) {
   } else if (orchestratedPct < 50) {
     finding = (
       <>
-        <strong>{orchestratedPct.toFixed(1)}%</strong> of comments are exact copies of{' '}
+        <strong>{orchestratedPct.toFixed(1)}%</strong> of comments are near-duplicate variants of{' '}
         {formLetterClusters.length} form letters; <strong>{uniquePct.toFixed(1)}%</strong> are
         unique substantive submissions. Coordinated activity is present but not dominant.
       </>
@@ -257,7 +311,7 @@ function DocketBody({ data }: { data: DocketData }) {
     finding = (
       <>
         Mass orchestration: <strong>{orchestratedPct.toFixed(1)}%</strong> of comments are
-        exact copies of {formLetterClusters.length} form-letter templates. Only{' '}
+        near-duplicate variants of {formLetterClusters.length} form-letter templates. Only{' '}
         <strong>{uniquePct.toFixed(1)}%</strong> of submissions are unique substantive
         comments ({(totals.total - orchestratedCount).toLocaleString()} out of{' '}
         {totals.total.toLocaleString()}).
@@ -290,6 +344,12 @@ function DocketBody({ data }: { data: DocketData }) {
         />
       </div>
 
+      {orchestratedCount > 0 && (
+        <div className="mb-4">
+          <StanceSplit totals={stanceTotals} covered={orchestratedCount} ofTotal={totals.total} />
+        </div>
+      )}
+
       <div className="space-y-5">
         <div>
           <h4 className="text-xs font-semibold uppercase tracking-wider text-[var(--muted)] mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -319,8 +379,13 @@ function DocketBody({ data }: { data: DocketData }) {
             </p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
-              {formLetterClusters.slice(0, 6).map(c => (
-                <ClusterCard key={c.hash} cluster={c} totalComments={totals.total} />
+              {stanced.slice(0, 6).map(({ cluster, stance }) => (
+                <ClusterCard
+                  key={cluster.hash}
+                  cluster={cluster}
+                  totalComments={totals.total}
+                  badge={<StanceChip stance={stance.stance} />}
+                />
               ))}
             </div>
           )}
@@ -369,7 +434,7 @@ function ChartLegend({
   );
 }
 
-function MetricCard({
+export function MetricCard({
   big,
   label,
   dotColor,
@@ -401,14 +466,24 @@ function MetricCard({
   );
 }
 
-function ClusterCard({ cluster, totalComments }: { cluster: Cluster; totalComments: number }) {
+export function ClusterCard({
+  cluster,
+  totalComments,
+  badge,
+}: {
+  cluster: Cluster;
+  totalComments: number;
+  /** Optional chip rendered next to the comment count (e.g. a stance label). */
+  badge?: React.ReactNode;
+}) {
   const pct = totalComments > 0 ? (cluster.n / totalComments) * 100 : 0;
   const cleanSample = cluster.sample.replace(/<br\s*\/?>(\s*<br\s*\/?>)*/gi, ' ').replace(/<[^>]+>/g, '').replace(/&[a-z]+;/gi, "'").slice(0, 220);
   return (
     <div className="rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3">
       <div className="flex items-baseline justify-between gap-2 mb-1.5">
-        <span className="font-semibold text-sm">
+        <span className="font-semibold text-sm inline-flex items-baseline gap-2">
           {cluster.n.toLocaleString()} {cluster.n === 1 ? 'comment' : 'comments'}
+          {badge}
         </span>
         <span className="text-xs text-[var(--muted)]">{pct.toFixed(1)}%</span>
       </div>
