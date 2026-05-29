@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { PageShell } from '@/components/ui/PageShell';
+import { SectionLabel } from '@/components/ui/SectionLabel';
 import { AgenciesTable } from '@/components/agencies/AgenciesTable';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
 import { getAllKnownAgenciesByDept } from '@/lib/agencyMetadata';
@@ -35,9 +36,7 @@ export default function AgenciesPage() {
 
   return (
     <PageShell maxWidth="5xl" mainClassName="max-w-5xl mx-auto px-4 py-8">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
-        Directory
-      </div>
+      <SectionLabel label="Directory" />
       <h1 className="font-serif text-3xl text-[var(--foreground)] mt-1 mb-5">Agencies</h1>
 
       <AgenciesTable groups={groups} counts={counts} volume={volume} />

@@ -3,13 +3,15 @@
 import { useEffect, useState } from 'react';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
 import { stripQuotes } from '@/lib/utils/fieldFormat';
+import { Card } from '@/components/ui/Card';
+import { PanelHeader } from '@/components/ui/PanelHeader';
 import { MiniDocketCard } from './MiniDocketCard';
 
 /**
  * An agency's most-commented dockets (all-time), highest first. Backed by
  * getTopDocketsByComments(code).
  */
-export function TopDockets({ agencyCode, limit = 10 }: { agencyCode: string; limit?: number }) {
+export function TopDockets({ agencyCode, limit = 5 }: { agencyCode: string; limit?: number }) {
   const { getTopDocketsByComments, isReady } = useDuckDBService();
   const [rows, setRows] = useState<Record<string, any>[] | null>(null);
 
@@ -23,11 +25,12 @@ export function TopDockets({ agencyCode, limit = 10 }: { agencyCode: string; lim
   }, [isReady, agencyCode, limit, getTopDocketsByComments]);
 
   return (
-    <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-      <div className="flex items-baseline gap-2 mb-2">
-        <h2 className="text-sm font-semibold text-[var(--foreground)]">Top dockets</h2>
-        <span className="text-[10.5px] text-[var(--muted-foreground)]">most commented</span>
-      </div>
+    <Card variant="gradient" interactive={false} className="p-6">
+      <PanelHeader
+        label="Top dockets"
+        title="What drew the most public comment?"
+        caption="Most commented · all time"
+      />
       {rows === null ? (
         <div className="py-4 text-xs text-[var(--muted)]">Loading…</div>
       ) : rows.length === 0 ? (
@@ -49,6 +52,6 @@ export function TopDockets({ agencyCode, limit = 10 }: { agencyCode: string; lim
           })}
         </div>
       )}
-    </section>
+    </Card>
   );
 }

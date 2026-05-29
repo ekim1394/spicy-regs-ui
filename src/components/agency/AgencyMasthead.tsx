@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { Avatar } from '@/components/ui/Avatar';
+import { Button } from '@/components/ui/Button';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
 import { getAgencyInfo, getParentDept, formatCount } from '@/lib/agencyMetadata';
 
@@ -69,7 +70,7 @@ export function AgencyMasthead({ agencyCode }: AgencyMastheadProps) {
               {agency.name}
             </h1>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-1 text-xs">
-              <span className="font-semibold" style={{ color: 'var(--accent-primary)' }}>
+              <span className="font-semibold text-[var(--accent-primary)]">
                 sr/{agencyCode}
               </span>
               <span className="text-[var(--border)]">·</span>
@@ -77,12 +78,9 @@ export function AgencyMasthead({ agencyCode }: AgencyMastheadProps) {
             </div>
           </div>
 
-          <Link
-            href={`/feed?agency=${agencyCode}`}
-            className="btn-primary inline-flex items-center text-sm justify-center sm:self-end flex-none"
-          >
-            View all dockets →
-          </Link>
+          <Button asChild variant="primary" className="text-sm sm:self-end flex-none">
+            <Link href={`/feed?agency=${agencyCode}`}>View all dockets →</Link>
+          </Button>
         </div>
 
         <p className="text-sm text-[var(--muted)] leading-relaxed mt-4 max-w-3xl">

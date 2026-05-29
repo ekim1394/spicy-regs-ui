@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Search } from 'lucide-react';
 import { Avatar } from '@/components/ui/Avatar';
+import { Card } from '@/components/ui/Card';
+import { SectionLabel } from '@/components/ui/SectionLabel';
 import { Sparkline } from '@/components/ui/Sparkline';
 import { formatCount, type AgencyInfo } from '@/lib/agencyMetadata';
 
@@ -105,8 +107,8 @@ export function AgenciesTable({ groups, counts, volume }: AgenciesTableProps) {
 
       {visibleGroups.map(({ dept, agencies }) => (
         <div key={dept} className="mb-6">
-          <div className="text-sm font-semibold text-[var(--muted)] mb-2">{dept}</div>
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4">
+          <SectionLabel label={dept} className="mb-2" />
+          <Card interactive={false} className="px-4">
             {/* Header row */}
             <div
               className="grid items-center py-2 border-b border-[var(--border)] text-[10px] font-bold uppercase tracking-[0.06em] text-[var(--muted)]"
@@ -131,7 +133,7 @@ export function AgenciesTable({ groups, counts, volume }: AgenciesTableProps) {
                   <div className="flex items-center gap-2.5 min-w-0">
                     <Avatar name={a.name} src={a.favicon} color={a.color} fallback={a.shortName} size="sm" />
                     <div className="min-w-0">
-                      <div className="text-xs font-semibold truncate" style={{ color: 'var(--accent-primary)' }}>
+                      <div className="text-xs font-semibold truncate text-[var(--accent-primary)]">
                         sr/{a.code}
                       </div>
                       <div className="text-xs text-[var(--muted)] truncate">{a.name}</div>
@@ -146,13 +148,13 @@ export function AgenciesTable({ groups, counts, volume }: AgenciesTableProps) {
                   <div className="flex justify-end">
                     <Sparkline data={densify(volume.get(a.code) ?? [], months)} width={90} height={20} />
                   </div>
-                  <div className="text-right text-sm" style={{ color: 'var(--accent-primary)' }}>
+                  <div className="text-right text-sm text-[var(--accent-primary)]">
                     →
                   </div>
                 </Link>
               );
             })}
-          </div>
+          </Card>
         </div>
       ))}
     </div>

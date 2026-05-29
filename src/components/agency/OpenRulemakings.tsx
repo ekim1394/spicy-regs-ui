@@ -3,13 +3,15 @@
 import { useEffect, useState } from 'react';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
 import { stripQuotes } from '@/lib/utils/fieldFormat';
+import { Card } from '@/components/ui/Card';
+import { PanelHeader } from '@/components/ui/PanelHeader';
 import { MiniDocketCard } from './MiniDocketCard';
 
 /**
  * An agency's currently-open rulemakings (comment window still open), soonest
  * deadline first. Backed by getOpenRulemakings(code).
  */
-export function OpenRulemakings({ agencyCode, limit = 8 }: { agencyCode: string; limit?: number }) {
+export function OpenRulemakings({ agencyCode, limit = 5 }: { agencyCode: string; limit?: number }) {
   const { getOpenRulemakings, isReady } = useDuckDBService();
   const [rows, setRows] = useState<Record<string, any>[] | null>(null);
 
@@ -23,11 +25,12 @@ export function OpenRulemakings({ agencyCode, limit = 8 }: { agencyCode: string;
   }, [isReady, agencyCode, limit, getOpenRulemakings]);
 
   return (
-    <section className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
-      <div className="flex items-baseline gap-2 mb-2">
-        <h2 className="text-sm font-semibold text-[var(--foreground)]">Open rulemakings</h2>
-        <span className="text-[10.5px] text-[var(--muted-foreground)]">comment window open · by deadline</span>
-      </div>
+    <Card variant="gradient" interactive={false} className="p-6">
+      <PanelHeader
+        label="Open rulemakings"
+        title="What's open for comment right now?"
+        caption="Comment window open · soonest deadline first"
+      />
       {rows === null ? (
         <div className="py-4 text-xs text-[var(--muted)]">Loading…</div>
       ) : rows.length === 0 ? (
@@ -49,6 +52,6 @@ export function OpenRulemakings({ agencyCode, limit = 8 }: { agencyCode: string;
           })}
         </div>
       )}
-    </section>
+    </Card>
   );
 }

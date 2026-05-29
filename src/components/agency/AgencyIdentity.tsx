@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { Avatar } from '@/components/ui/Avatar';
+import { Button } from '@/components/ui/Button';
+import { SectionLabel } from '@/components/ui/SectionLabel';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
 import { getAgencyInfo, getParentDept, formatCount } from '@/lib/agencyMetadata';
 
@@ -69,11 +71,7 @@ export function AgencyIdentity({
 
   return (
     <Card variant="gradient" className="overflow-hidden">
-      {label && (
-        <div className="px-4 pt-3 text-[10px] font-semibold uppercase tracking-wider text-[var(--muted)]">
-          {label}
-        </div>
-      )}
+      {label && <SectionLabel label={label} className="px-4 pt-3" />}
 
       {/* Agency-tinted wash */}
       <div
@@ -91,10 +89,10 @@ export function AgencyIdentity({
           className="border-2 border-[var(--surface)]"
         />
 
-        <h3 className="font-serif text-base text-[var(--foreground)] mt-2 leading-snug">
+        <h3 className="text-base font-semibold text-[var(--foreground)] mt-2 leading-snug">
           {agency.name}
         </h3>
-        <div className="text-xs font-semibold" style={{ color: 'var(--accent-primary)' }}>
+        <div className="text-xs font-semibold text-[var(--accent-primary)]">
           sr/{agencyCode}
         </div>
         <div className="text-[11px] text-[var(--muted)] mt-1">{dept}</div>
@@ -120,18 +118,9 @@ export function AgencyIdentity({
           </div>
         </div>
 
-        {pri ? (
-          <Link href={ctaHref} className="btn-primary inline-flex items-center text-sm w-full justify-center">
-            {cta}
-          </Link>
-        ) : (
-          <Link
-            href={ctaHref}
-            className="inline-flex items-center justify-center w-full px-4 py-2 rounded-[10px] text-sm font-medium border border-[var(--border)] text-[var(--foreground)] hover:border-[var(--accent-primary)] hover:bg-[var(--surface-elevated)] transition-colors"
-          >
-            {cta}
-          </Link>
-        )}
+        <Button asChild variant={pri ? 'primary' : 'secondary'} className="w-full text-sm">
+          <Link href={ctaHref}>{cta}</Link>
+        </Button>
       </div>
     </Card>
   );
