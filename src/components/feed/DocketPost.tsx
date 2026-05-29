@@ -7,31 +7,24 @@ import {
   MessageSquare,
   FileText,
   Paperclip,
-  ChevronDown,
-  ChevronUp,
   Download,
-  Clock,
 } from 'lucide-react';
 import { getAgencyInfo, timeAgo, formatCount } from '@/lib/agencyMetadata';
 import { stripQuotes, decodeHtml, parseRawJson } from '@/lib/utils/fieldFormat';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { StatusTag } from '@/components/ui/StatusTag';
 
 interface DocketPostProps {
   item: Record<string, any>;
   commentCount?: number;
   documentCount?: number;
-  /** If true, we're on the detail page — don't render title as link */
-  isDetailView?: boolean;
-  showComments?: boolean;
 }
 
 export function DocketPost({
   item,
   commentCount = 0,
   documentCount = 0,
-  isDetailView = false,
-  showComments = false,
 }: DocketPostProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -59,16 +52,6 @@ export function DocketPost({
     : null;
   const isRecentlyClosed =
     daysSinceClosed !== null && daysSinceClosed >= 0 && daysSinceClosed <= RECENTLY_CLOSED_DAYS;
-
-  // Urgency color for comment deadline
-  const getDeadlineUrgency = (endDate: string) => {
-    const daysLeft = Math.ceil(
-      (new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-    );
-    if (daysLeft < 3) return { color: 'var(--accent-red, #dc2626)', label: `${daysLeft}d left` };
-    if (daysLeft < 14) return { color: 'var(--accent-amber, #d97706)', label: `${daysLeft}d left` };
-    return { color: 'var(--accent-green)', label: `${daysLeft}d left` };
-  };
 
   // Attachments from documents
   const attachments = useMemo(() => {
@@ -110,30 +93,22 @@ export function DocketPost({
               )}
             </div>
 
-            {isDetailView ? (
-              <h3 className="text-lg font-semibold text-[var(--foreground)] leading-snug">
-                {title}
-              </h3>
-            ) : (
-              <Link
-                href={`/sr/${agencyCode}/${encodeURIComponent(docketId)}`}
-                className="text-lg font-semibold text-[var(--foreground)] leading-snug hover:text-[var(--accent-primary)] transition-colors block"
-              >
-                {title}
-              </Link>
-            )}
+            <Link
+              href={`/sr/${agencyCode}/${encodeURIComponent(docketId)}`}
+              className="text-lg font-semibold text-[var(--foreground)] leading-snug hover:text-[var(--accent-primary)] transition-colors block"
+            >
+              {title}
+            </Link>
 
             {/* Badges */}
             <div className="flex items-center gap-2 mt-1.5">
               {docketType && <Badge>{docketType}</Badge>}
-              {isOpenForComment && commentEndDate && (() => {
-                const urgency = getDeadlineUrgency(commentEndDate);
-                return (
-                  <Badge variant="urgent" color={urgency.color} dot>
-                    Open for Comment · {urgency.label}
-                  </Badge>
-                );
-              })()}
+              {isOpenForComment && commentEndDate && (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="text-xs font-medium text-[var(--muted)]">Open for Comment ·</span>
+                  <StatusTag commentEndDate={commentEndDate} />
+                </span>
+              )}
               {!isOpenForComment && isRecentlyClosed && daysSinceClosed !== null && (
                 <Badge dot>
                   Recently Closed · {daysSinceClosed === 0 ? 'today' : `${daysSinceClosed}d ago`}
@@ -198,31 +173,17 @@ export function DocketPost({
               {formatCount(commentCount)} comments
             </span>
           )}
-          {dateCreated && (
-            <span className="metadata-pill">
-              <Clock size={12} />
-              Created {timeAgo(dateCreated)}
-            </span>
-          )}
-          {modifyDate && (
-            <span className="metadata-pill">
-              <Clock size={12} />
-              Modified {timeAgo(modifyDate)}
-            </span>
-          )}
         </div>
 
         {/* Action Bar */}
         <div className="flex items-center gap-1 mt-3 pt-3 border-t border-[var(--border)]">
-          {!isDetailView && (
-            <Link
-              href={`/sr/${agencyCode}/${encodeURIComponent(docketId)}`}
-              className="action-btn"
-            >
-              <MessageSquare size={16} />
-              {commentCount > 0 ? `${formatCount(commentCount)} Comments` : 'Comments'}
-            </Link>
-          )}
+          <Link
+            href={`/sr/${agencyCode}/${encodeURIComponent(docketId)}`}
+            className="action-btn"
+          >
+            <MessageSquare size={16} />
+            Comments
+          </Link>
 
           <a
             href={regsDotGovUrl}

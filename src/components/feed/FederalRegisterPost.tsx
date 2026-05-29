@@ -9,6 +9,12 @@ import type { FederalRegisterDoc } from '@/lib/fr/types';
 
 interface FederalRegisterPostProps {
   doc: FederalRegisterDoc;
+  /**
+   * Feed variant: dashed border + a leading "Federal Register" tag so an FR
+   * entry reads as visually distinct when interleaved into the docket river
+   * (per the wireframe). Off elsewhere (e.g. /federal-register, /search).
+   */
+  dashed?: boolean;
 }
 
 /**
@@ -23,7 +29,7 @@ interface FederalRegisterPostProps {
  * Linked dockets, when present, render as inline chips back to /sr/{...} —
  * that's the cross-link a Mirrulations user mostly cares about.
  */
-export function FederalRegisterPost({ doc }: FederalRegisterPostProps) {
+export function FederalRegisterPost({ doc, dashed = false }: FederalRegisterPostProps) {
   const agencies = doc.agencySlugs
     ? doc.agencySlugs.split(',').map((s) => s.trim()).filter(Boolean)
     : [];
@@ -56,10 +62,19 @@ export function FederalRegisterPost({ doc }: FederalRegisterPostProps) {
     : null;
 
   return (
-    <Card asChild className="p-4 hover:border-[var(--accent-primary)]/40 transition-colors">
+    <Card
+      asChild
+      className="p-4 hover:border-[var(--accent-primary)]/40 transition-colors"
+      style={dashed ? { borderStyle: 'dashed', background: 'var(--surface-elevated)' } : undefined}
+    >
       <article>
       {/* Header strip: agencies · type · date */}
       <div className="flex items-center gap-2 mb-1.5 text-xs text-[var(--muted)] flex-wrap">
+        {dashed && (
+          <Badge variant="code" size="xs" className="!bg-[var(--surface-raised)] !text-[var(--muted)]">
+            Federal Register
+          </Badge>
+        )}
         {agencies.slice(0, 3).map((slug) => (
           <Badge key={slug} variant="code" size="xs" className="!text-[var(--accent-primary)]">
             {slug}

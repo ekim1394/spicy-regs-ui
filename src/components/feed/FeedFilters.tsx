@@ -42,6 +42,9 @@ interface FeedFiltersProps {
   onDocketTypeChange: (type: DocketType) => void;
   topic?: TopicKey;
   onTopicChange?: (topic: TopicKey) => void;
+  /** Federal Register inline toggle. Omit to hide it (e.g. agency profile). */
+  includeFR?: boolean;
+  onIncludeFRChange?: (next: boolean) => void;
 }
 
 export function FeedFilters({
@@ -53,8 +56,11 @@ export function FeedFilters({
   onDocketTypeChange,
   topic,
   onTopicChange,
+  includeFR,
+  onIncludeFRChange,
 }: FeedFiltersProps) {
   const showTopics = topic !== undefined && onTopicChange !== undefined;
+  const showFRToggle = includeFR !== undefined && onIncludeFRChange !== undefined;
 
   // FilterSelect expects { value, label }; the feedFilters module emits
   // { key, label }. Adapt once, memoized, instead of inline at each call.
@@ -97,6 +103,29 @@ export function FeedFilters({
           options={statusOptions}
           ariaLabel="Filter by comment period status"
         />
+
+        {showFRToggle && (
+          <button
+            type="button"
+            role="switch"
+            aria-checked={includeFR}
+            onClick={() => onIncludeFRChange!(!includeFR)}
+            className="ml-auto inline-flex items-center gap-2 text-xs text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+          >
+            <span
+              className={`relative inline-block w-8 h-4 rounded-full transition-colors ${
+                includeFR ? 'bg-[var(--accent-primary)]' : 'bg-[var(--border)]'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all ${
+                  includeFR ? 'right-0.5' : 'left-0.5'
+                }`}
+              />
+            </span>
+            include Federal Register
+          </button>
+        )}
       </div>
 
       {/* Row 2: Sort Chips — only New / Popular; status dropdown handles Open / Closed */}
