@@ -10,7 +10,7 @@ import { ParentSize } from '@visx/responsive';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
 import { useDuckDB } from '@/lib/duckdb/context';
 import { getAgencyInfo } from '@/lib/agencyMetadata';
-import { PanelHeader } from './PanelHeader';
+import { PanelHeader } from '@/components/ui/PanelHeader';
 import { DemoPill } from './DemoPill';
 
 interface Summary {
@@ -155,12 +155,12 @@ export function LifecyclePanel({ agencyCode }: LifecyclePanelProps = {}) {
       <span className="font-medium">Final Rule</span>. The chart below shows how long that
       takes for each of the top eight rulemaking agencies. Each row is one agency&apos;s
       distribution of completed rulemakings (in days from proposal to final), with the
-      median marked in solid colour.
+      median marked in solid color.
     </>
   );
 
   return (
-    <section className="card-gradient p-6 mb-8">
+    <section className="card card-lg p-6 mb-8">
       <PanelHeader
         label="Rulemaking duration"
         title="How long does it take to make a federal rule?"
@@ -218,10 +218,10 @@ export function LifecyclePanel({ agencyCode }: LifecyclePanelProps = {}) {
             <p className="text-xs text-[var(--muted)] mb-3 max-w-3xl leading-relaxed">
               Proposed Rules from {single ? <>this agency</> : <>these eight agencies</>}, posted
               between 18 months and 8 years ago, that have <em>no Final Rule document</em> on the
-              same docket. Some are genuinely pending. Many were withdrawn, abandoned, or finalised
+              same docket. Some are genuinely pending. Many were withdrawn, abandoned, or finalized
               under a different docket ID that we can&apos;t link without the RIN field (currently
-              dropped by the pipeline). Reader beware: this list is a <em>suspicious-cases</em>
-              list, not a confirmed one.
+              dropped by the pipeline). Treat this as a list of <em>suspicious cases</em>, not
+              confirmed ones.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
               {stuck.map(s => (

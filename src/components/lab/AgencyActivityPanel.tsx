@@ -9,7 +9,7 @@ import { ParentSize } from '@visx/responsive';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
 import { useDuckDB } from '@/lib/duckdb/context';
 import { getAgencyInfo } from '@/lib/agencyMetadata';
-import { PanelHeader } from './PanelHeader';
+import { PanelHeader } from '@/components/ui/PanelHeader';
 import { AdminBands } from './AdminBands';
 
 interface MonthRow {
@@ -198,7 +198,7 @@ export function AgencyActivityPanel({ agencyCode }: AgencyActivityPanelProps = {
     <>
       <span className="font-medium">Final Rule</span> documents per month at{' '}
       <span className="font-mono-id">{agencyCode}</span>, with administration eras shaded. Over a
-      multi-year window the era split becomes a real comparator — an outgoing administration&rsquo;s
+      multi-year window the era split becomes a useful comparison: an outgoing administration&rsquo;s
       end-of-term &ldquo;midnight regulations&rdquo; surge shows up as a late spike. Blue marks
       Democratic administrations, red Republican; dashed lines mark each January 20 handoff.
     </>
@@ -214,7 +214,7 @@ export function AgencyActivityPanel({ agencyCode }: AgencyActivityPanelProps = {
   );
 
   return (
-    <section className="card-gradient p-6 mb-8">
+    <section className="card card-lg p-6 mb-8">
       <PanelHeader
         label={single ? 'Regulatory output · monthly' : 'Regulatory output by agency'}
         title={single ? 'Final Rule output' : 'The midnight regulation surge'}
@@ -224,7 +224,7 @@ export function AgencyActivityPanel({ agencyCode }: AgencyActivityPanelProps = {
             <>
               <span className="font-mono-id">{finding.code}</span> finalized{' '}
               <strong>{finding.f.midnightCount}</strong> rules in the last 60 days of the Biden
-              administration — about <strong>{finding.f.ratio.toFixed(1)}×</strong> its
+              administration, about <strong>{finding.f.ratio.toFixed(1)}×</strong> its
               prior-year rate of {finding.f.baselineRate.toFixed(1)} per 60 days.
             </>
           ) : null

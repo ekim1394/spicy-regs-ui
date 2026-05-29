@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
-import { PanelHeader, FindingNote, DocketIdentity } from './PanelHeader';
+import { PanelHeader, FindingNote, DocketIdentity } from '@/components/ui/PanelHeader';
 import { MetricCard, ClusterCard, type Cluster } from './CommentOrchestrationPanel';
 import { isPlaceholder } from '@/lib/text/normalize';
 import { scoreStance, aggregateStance } from '@/lib/text/stance';
@@ -24,7 +24,7 @@ const DOCKETS = [
 type Tier = 'exact' | 'template' | 'near';
 const TIERS: { id: Tier; label: string; blurb: string }[] = [
   { id: 'exact', label: 'Exact', blurb: 'Byte-identical text only (what the panel above does today).' },
-  { id: 'template', label: 'Template', blurb: 'Strips HTML, contacts, digits, case and punctuation — collapses form letters that differ only in formatting or filled-in numbers/ZIPs.' },
+  { id: 'template', label: 'Template', blurb: 'Strips HTML, contacts, digits, case and punctuation, collapsing form letters that differ only in formatting or filled-in numbers/ZIPs.' },
   { id: 'near', label: 'Near-dup', blurb: 'Order/edit-tolerant: matches on the shared vocabulary set. A cheap stand-in for SimHash/MinHash.' },
 ];
 
@@ -71,14 +71,14 @@ export function CommentFidelityPanel() {
   const error = errors[`${activeId}:${activeTier}`];
 
   return (
-    <section className="card-gradient p-6 mb-8">
+    <section className="card card-lg p-6 mb-8">
       <PanelHeader
         label="Fidelity ladder · pathway to production"
         title="What each matching step recovers"
         caption={
           <>
-            The panel above ships the top of this ladder — the{' '}
-            <strong>near-duplicate</strong> tier — by default. This guide steps through
+            The panel above ships the top of this ladder (the{' '}
+            <strong>near-duplicate</strong> tier) by default. This guide steps through
             the rungs so you can see what each normalization step buys: start at{' '}
             <strong>exact</strong> match (a single form letter signed by thousands counts
             as thousands of &ldquo;unique&rdquo; submissions), then loosen to{' '}
@@ -159,7 +159,7 @@ function FidelityBody({ data, exact, tier }: { data: TierData; exact?: TierData;
           <>
             Exact-text matching calls <strong>{exactUniquePct.toFixed(1)}%</strong> of these
             comments unique. The <strong>{tier}</strong> tier reveals the real figure is closer to{' '}
-            <strong>{uniquePct.toFixed(1)}%</strong> — the rest are{' '}
+            <strong>{uniquePct.toFixed(1)}%</strong>; the rest are{' '}
             {formLetters.length} {formLetters.length === 1 ? 'template' : 'templates'} with the
             personalized bits swapped out.
           </>
@@ -276,7 +276,7 @@ function FullStackNote() {
         </p>
         <p>
           The &ldquo;near-dup&rdquo; tier is a cheap stand-in: production should compute a 64-bit SimHash (or
-          MinHash) per comment and bucket by Hamming-band LSH — still O(n), but robust to rewording. Stance
+          MinHash) per comment and bucket by Hamming-band LSH, still O(n) but robust to rewording. Stance
           should be a real classifier or batch-LLM label run <em>once per template</em> (a few dozen rows),
           not per comment.
         </p>
