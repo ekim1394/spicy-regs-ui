@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { FileText, Download } from 'lucide-react';
 import { timeAgo } from '@/lib/agencyMetadata';
+import { daysUntil, deadlineLevel, DEADLINE_COLOR_VAR } from '@/lib/deadline';
 import { stripQuotes } from '@/lib/utils/fieldFormat';
 import { Badge } from '@/components/ui/Badge';
 
@@ -55,15 +56,8 @@ export function DocumentList({ documents, loading = false, agencyCode, docketId 
             ? new Date(commentEndDate) > new Date()
             : false;
 
-          const daysLeft = commentEndDate
-            ? Math.ceil((new Date(commentEndDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-            : 0;
-
-          const getUrgencyColor = () => {
-            if (daysLeft < 3) return 'var(--accent-red, #dc2626)';
-            if (daysLeft < 14) return 'var(--accent-amber, #d97706)';
-            return 'var(--accent-green)';
-          };
+          const daysLeft = daysUntil(commentEndDate || null) ?? 0;
+          const urgencyColor = DEADLINE_COLOR_VAR[deadlineLevel(daysLeft)];
 
           return (
             <div key={docId || i} className="document-card">
@@ -94,11 +88,11 @@ export function DocumentList({ documents, loading = false, agencyCode, docketId 
                     {isOpenForComment && commentEndDate ? (
                       <span
                         className="inline-flex items-center gap-1 text-xs font-medium"
-                        style={{ color: getUrgencyColor() }}
+                        style={{ color: urgencyColor }}
                       >
                         <span
                           className="w-1.5 h-1.5 rounded-full"
-                          style={{ backgroundColor: getUrgencyColor() }}
+                          style={{ backgroundColor: urgencyColor }}
                         />
                         Open for Comment · {daysLeft}d left · Closes{' '}
                         {new Date(commentEndDate).toLocaleDateString()}

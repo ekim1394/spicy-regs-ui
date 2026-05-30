@@ -141,10 +141,9 @@ h3 {
 
 /* ─── Card ─── the single surface primitive.
    ONE card. `.card-lg` only bumps the radius (feed posts, feature tiles, Lab
-   panels). Hover lifts the border to the accent + a soft indigo shadow. The
-   old `.card-gradient` (masked-gradient stroke) and `.docket-post` (2px accent
-   resting frame) were removed — both were chrome doing a job a plain neutral
-   border already does, and the accent is freed to mean "action", not chrome. */
+   panels). Hover lifts the border to the accent + a soft indigo shadow.
+   Separation comes from the neutral border; the accent is reserved to mean
+   "action", not chrome. */
 .card {
   background: var(--surface);
   border: 1.5px solid var(--border);

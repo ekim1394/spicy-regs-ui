@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { DemoPill } from '@/components/ui/DemoPill';
 
 interface DemoCalloutProps {
   agencyCode: string;
@@ -23,15 +24,7 @@ export function DemoCallout({ agencyCode, docketId }: DemoCalloutProps) {
       }}
     >
       <div className="flex items-center gap-2 mb-1.5">
-        <span
-          className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium uppercase tracking-wider text-[var(--accent-amber)]"
-          style={{
-            background: 'color-mix(in srgb, var(--accent-amber) 12%, transparent)',
-            border: '1px solid color-mix(in srgb, var(--accent-amber) 25%, transparent)',
-          }}
-        >
-          demo
-        </span>
+        <DemoPill />
         <span className="text-sm font-semibold text-[var(--accent-amber)]">
           Per-document comment filtering pending
         </span>

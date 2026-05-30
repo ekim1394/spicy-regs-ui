@@ -40,9 +40,8 @@ export interface AgencyIdentityProps {
  * Agency-tinted wash + avatar + serif name + sr/CODE handle + parent
  * department + blurb + (dockets, comments) stat pair + CTA.
  *
- * Replaces the old multi-card AgencySidebar. Only `label`, `cta`, `href`,
- * and `pri` vary by context — the body is identical on both pages so the
- * rail never jumps treatment between them.
+ * Only `label`, `cta`, `href`, and `pri` vary by context — the body is
+ * identical on both pages so the rail never jumps treatment between them.
  */
 export function AgencyIdentity({
   agencyCode,

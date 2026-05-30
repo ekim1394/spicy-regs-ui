@@ -14,8 +14,8 @@ interface SectionLabelProps {
 
 /**
  * The single section-header treatment used across the app: a small uppercase
- * label with an optional muted "· caption" companion. Centralized so the feed
- * river header, the discovery rail, and the docket page all read identically.
+ * label with an optional muted "· caption" companion, so section headers read
+ * identically wherever they appear.
  */
 export function SectionLabel({ label, caption, className = '' }: SectionLabelProps) {
   return (

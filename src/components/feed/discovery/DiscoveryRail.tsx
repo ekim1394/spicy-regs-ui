@@ -17,8 +17,8 @@ interface DiscoveryRailProps {
 /**
  * "Worth a look" — a horizontally-scrolling shelf of registered signals
  * (comment surge, closing soon, output spike, most discussed), each a doorway
- * to a different facet. Generalises the old trending shelf: new signal types
- * plug into the registry (signals.ts) without touching the feed river.
+ * to a different facet. New signal types plug into the registry (signals.ts)
+ * without touching the feed river.
  *
  * Hides entirely when a filter is active, while loading, or if no signals fire.
  */

@@ -23,15 +23,9 @@ describe('Badge', () => {
     expect(badge.className).toContain('bg-[var(--surface-raised)]');
   });
 
-  it('applies caller color and dot for urgent variant', () => {
-    render(
-      <Badge variant="urgent" color="#dc2626" dot>
-        3d left
-      </Badge>,
-    );
-    const badge = screen.getByText('3d left');
-    expect(badge).toHaveStyle({ color: 'rgb(220, 38, 38)' });
-    // Dot rendered as aria-hidden sibling.
+  it('renders an aria-hidden dot when dot is set', () => {
+    render(<Badge dot>Federal Register</Badge>);
+    const badge = screen.getByText('Federal Register');
     const dot = badge.querySelector('[aria-hidden]');
     expect(dot).not.toBeNull();
   });

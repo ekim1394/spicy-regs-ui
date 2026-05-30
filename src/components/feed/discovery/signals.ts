@@ -1,16 +1,15 @@
 /**
  * DiscoveryRail signal registry.
  *
- * The rail is no longer a single "trending" shelf — it's a pluggable set of
- * SIGNALS, each a different way the data gets interesting and each a doorway to
- * a different facet (a docket, an agency profile, the comment window). Adding a
- * new signal type later means: add a `SignalKind`, its `SIGNAL_META` entry, a
- * branch in `signalHref`, and a readout component in ./readouts — no churn to
- * the feed river itself.
+ * A pluggable set of SIGNALS, each a different way the data gets interesting and
+ * each a doorway to a different facet (a docket, an agency profile, the comment
+ * window). Adding a signal type means: add a `SignalKind`, its `SIGNAL_META`
+ * entry, a branch in `signalHref`, and a readout component in ./readouts — no
+ * churn to the feed river itself.
  *
- * v1 ships four signals. Form-letter storm is deliberately omitted: detecting
- * it across all dockets is an expensive MD5-clustering scan, so it stays on the
- * Docket Comments tab where the query is scoped to one docket.
+ * Four signals are registered. Form-letter storm is deliberately omitted:
+ * detecting it across all dockets is an expensive MD5-clustering scan, so it
+ * stays on the Docket Comments tab where the query is scoped to one docket.
  *
  * The shapes below mirror what useDuckDBService.getDiscoverySignals() returns.
  */
@@ -73,11 +72,6 @@ export const SIGNAL_META: Record<SignalKind, { eyebrow: string; facet: string }>
   spike: { eyebrow: 'Output spike', facet: 'agency profile' },
   discussed: { eyebrow: 'Most discussed', facet: 'docket' },
 };
-
-/** The agency code a card belongs to (for the avatar + sr/ handle). */
-export function signalAgencyCode(signal: DiscoverySignal): string {
-  return signal.data.agencyCode;
-}
 
 /** Where a card links to when clicked. */
 export function signalHref(signal: DiscoverySignal): string {

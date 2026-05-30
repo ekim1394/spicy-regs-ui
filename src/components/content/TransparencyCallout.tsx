@@ -1,3 +1,5 @@
+import { DemoPill } from '@/components/ui/DemoPill';
+
 /**
  * The product's "radically transparent" value, as a reusable callout: every
  * synthesized figure wears a demo pill naming the ETL fields it stands in for.
@@ -7,15 +9,13 @@ export function TransparencyCallout() {
   return (
     <div
       className="rounded-xl border border-dashed p-4"
-      style={{ borderColor: 'rgba(217,119,6,0.4)', background: 'rgba(217,119,6,0.06)' }}
+      style={{
+        borderColor: 'color-mix(in srgb, var(--accent-amber) 40%, transparent)',
+        background: 'color-mix(in srgb, var(--accent-amber) 6%, transparent)',
+      }}
     >
       <div className="flex items-center gap-2 mb-1.5">
-        <span
-          className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium uppercase tracking-wider"
-          style={{ background: 'rgba(217,119,6,0.12)', color: 'var(--accent-amber)', border: '1px solid rgba(217,119,6,0.25)' }}
-        >
-          demo
-        </span>
+        <DemoPill />
         <span className="text-sm font-semibold" style={{ color: 'var(--accent-amber)' }}>
           Some values are simulated, and always labeled
         </span>

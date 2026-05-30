@@ -7,16 +7,7 @@ import { Check, ChevronDown } from 'lucide-react';
 /**
  * Pill-style select for filter bars, built on Radix Select.
  *
- * Replaces the three hand-rolled wrappers in FeedFilters, FRFeedFilters,
- * and TopicFilter — each of which had its own copy of:
- *   <div className="relative">
- *     <ChevronDown className="absolute right-2 ..." />
- *     <select className="filter-chip appearance-none pr-7 ..." ...>
- *       {OPTIONS.map(...)}
- *     </select>
- *   </div>
- *
- * The Radix version gives us proper keyboard / aria semantics out of
+ * Gives proper keyboard / aria semantics out of
  * the box (Tab → Space/Enter to open, Arrow keys to navigate, Escape
  * to close, type-ahead by first letter) and renders a styled popover
  * instead of the OS native picker, so the menu chrome looks consistent

@@ -5,6 +5,7 @@ import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
 import { PanelHeader, FindingNote, DocketIdentity } from '@/components/ui/PanelHeader';
 import { MetricCard, ClusterCard, type Cluster } from './CommentOrchestrationPanel';
 import { isPlaceholder } from '@/lib/text/normalize';
+import { computeOrchestration } from '@/lib/comments/orchestration';
 import { scoreStance, aggregateStance } from '@/lib/text/stance';
 import { StanceSplit, StanceChip } from './stanceViz';
 
@@ -23,7 +24,7 @@ const DOCKETS = [
 
 type Tier = 'exact' | 'template' | 'near';
 const TIERS: { id: Tier; label: string; blurb: string }[] = [
-  { id: 'exact', label: 'Exact', blurb: 'Byte-identical text only (what the panel above does today).' },
+  { id: 'exact', label: 'Exact', blurb: 'Byte-identical text only.' },
   { id: 'template', label: 'Template', blurb: 'Strips HTML, contacts, digits, case and punctuation, collapsing form letters that differ only in formatting or filled-in numbers/ZIPs.' },
   { id: 'near', label: 'Near-dup', blurb: 'Order/edit-tolerant: matches on the shared vocabulary set. A cheap stand-in for SimHash/MinHash.' },
 ];
@@ -119,11 +120,10 @@ export function CommentFidelityPanel() {
 
 function FidelityBody({ data, exact, tier }: { data: TierData; exact?: TierData; tier: Tier }) {
   const { totals, clusters } = data;
-  const realClusters = useMemo(() => clusters.filter(c => !isPlaceholder(c.sample)), [clusters]);
-  const formLetters = realClusters.filter(c => c.n >= 2);
-  const orchestratedCount = formLetters.reduce((s, c) => s + c.n, 0);
-  const uniquePct = totals.total === 0 ? 0 : ((totals.total - orchestratedCount) / totals.total) * 100;
-  const orchestratedPct = totals.total === 0 ? 0 : (orchestratedCount / totals.total) * 100;
+  const { formLetters, orchestratedCount, uniquePct, orchestratedPct } = useMemo(
+    () => computeOrchestration(clusters, totals.total, c => isPlaceholder(c.sample)),
+    [clusters, totals.total],
+  );
 
   // Per-template stance, propagated by cluster size (label templates, not comments).
   const stanced = useMemo(
@@ -139,9 +139,7 @@ function FidelityBody({ data, exact, tier }: { data: TierData; exact?: TierData;
   // Delta vs exact baseline for the headline finding.
   const exactUniquePct = useMemo(() => {
     if (!exact || exact.totals.total === 0) return null;
-    const exactReal = exact.clusters.filter(c => !isPlaceholder(c.sample)).filter(c => c.n >= 2);
-    const exactOrch = exactReal.reduce((s, c) => s + c.n, 0);
-    return ((exact.totals.total - exactOrch) / exact.totals.total) * 100;
+    return computeOrchestration(exact.clusters, exact.totals.total, c => isPlaceholder(c.sample)).uniquePct;
   }, [exact]);
 
   return (
@@ -259,33 +257,137 @@ function TierToggle({ active, onChange }: { active: Tier; onChange: (t: Tier) =>
   );
 }
 
-/** What this demo stands in for, and where the real fidelity work belongs. */
+/**
+ * Generalizable architecture note: what aggregation the lab does client-side,
+ * what belongs on a server / offline tier, and where to extend. Applies to the
+ * whole lab, not just this panel.
+ */
 function FullStackNote() {
   return (
     <details className="mt-5 text-xs text-[var(--muted)]">
       <summary className="cursor-pointer font-semibold text-[var(--foreground)]">
-        How to take this to production
+        Architecture: client-side aggregation, and the path to a server tier
       </summary>
-      <div className="mt-2 space-y-2 max-w-3xl leading-relaxed">
+      <div className="mt-3 space-y-4 max-w-3xl leading-relaxed">
         <p>
-          Every transform here is portable SQL (<span className="font-mono-id">lib/text/normalize.ts</span>),
-          so the same logic that runs in the browser can run once in the offline mirror and bake{' '}
-          <span className="font-mono-id">skeleton_hash</span>, <span className="font-mono-id">word_count</span>, and
-          a per-template <span className="font-mono-id">stance</span> column into parquet. The UI then just{' '}
-          <span className="font-mono-id">GROUP BY skeleton_hash</span> instead of hashing 370k strings live.
+          Every chart in the lab computes <em>on the client</em>: DuckDB-WASM reads column-pruned,
+          predicate-pushed Parquet straight from R2 over HTTP range requests, so there is no backend to
+          run. That keeps deploys instant and queries fully ad-hoc — but it also means every viewer
+          re-runs the same scan, and per-row work over millions of rows (live hashing, fuzzy matching,
+          embeddings) is slow or simply infeasible. The split below is where a server / offline tier earns
+          its keep.
         </p>
-        <p>
-          The &ldquo;near-dup&rdquo; tier is a cheap stand-in: production should compute a 64-bit SimHash (or
-          MinHash) per comment and bucket by Hamming-band LSH, still O(n) but robust to rewording. Stance
-          should be a real classifier or batch-LLM label run <em>once per template</em> (a few dozen rows),
-          not per comment.
-        </p>
-        <p>
-          One more offline-only win: the comment partition files drop the submitter&rsquo;s name and
-          organization, so we can&rsquo;t mask a signer&rsquo;s own name out of the body here. With those
-          columns the skeleton would also collapse letters that differ only in their signature.
-        </p>
+
+        <div>
+          <NoteHead>What the browser aggregates today</NoteHead>
+          <NoteList>
+            <li>
+              <Lead>Counting &amp; distinct</Lead> — <Mono>COUNT</Mono>/<Mono>COUNT DISTINCT</Mono>/
+              <Mono>SUM(row_count)</Mono>, mostly answered from the tiny <Mono>comments_index</Mono> and{' '}
+              <Mono>feed_summary</Mono> so they never read the multi-GB comment files.
+            </li>
+            <li>
+              <Lead>Time-bucketing</Lead> — <Mono>date_trunc</Mono> to day/month +{' '}
+              <Mono>GROUP BY</Mono> (agency activity, comments-per-day, discovery surges).
+            </li>
+            <li>
+              <Lead>Distributions</Lead> — <Mono>quantile_cont</Mono> percentiles, min/max, window-function
+              ranked samples, and deterministic <Mono>hash()</Mono> bucketing (rulemaking lifecycles).
+            </li>
+            <li>
+              <Lead>Text clustering</Lead> — <Mono>md5</Mono> over the shared{' '}
+              <Mono>lib/text/normalize</Mono> skeleton (exact + template tiers).
+            </li>
+            <li>
+              <Lead>Fuzzy near-dup</Lead> — a sorted token-set key (this panel&rsquo;s default), a cheap
+              O(n) stand-in for the real thing.
+            </li>
+            <li>
+              <Lead>Stance</Lead> — a phrase lexicon scored per template in JS, weighted by cluster size.
+            </li>
+            <li>
+              <Lead>Search &amp; sampling</Lead> — <Mono>ILIKE</Mono>/JSON-array substring scans, and{' '}
+              <Mono>ORDER BY random()</Mono> over the index. All results are <Mono>LIMIT</Mono>-bounded;
+              caches are in-memory only (<Mono>useRef</Mono>/state).
+            </li>
+          </NoteList>
+        </div>
+
+        <div>
+          <NoteHead>What moves to the offline mirror / server</NoteHead>
+          <NoteList>
+            <li>
+              <Lead>Precompute derived columns at ETL</Lead> — <Mono>skeleton_hash</Mono>,{' '}
+              <Mono>simhash</Mono>, <Mono>word_count</Mono>, <Mono>is_placeholder</Mono>, and a per-template{' '}
+              <Mono>stance</Mono> + confidence keyed by <Mono>skeleton_hash</Mono>. Clustering then collapses
+              to <Mono>GROUP BY skeleton_hash</Mono> — no live hashing of 370k strings.
+            </li>
+            <li>
+              <Lead>Materialize rollups</Lead> — the way <Mono>feed_summary</Mono> already pre-bakes counts:
+              per-docket cluster summaries, per-agency monthly volume, lifecycle percentiles, discovery
+              signals. Each becomes a few-KB artifact the page reads instead of scanning{' '}
+              <Mono>documents.parquet</Mono> (~57 MB) or the index on every load.
+            </li>
+            <li>
+              <Lead>Heavy near-dup offline</Lead> — a 64-bit SimHash / MinHash + Hamming-band LSH per
+              comment: still O(n), but robust to rewording in a way the token-set key isn&rsquo;t.
+            </li>
+            <li>
+              <Lead>A real search index</Lead> — FTS/BM25 or an inverted index instead of full-scan{' '}
+              <Mono>ILIKE</Mono> over ~793k Federal Register rows.
+            </li>
+            <li>
+              <Lead>Recover dropped fields</Lead> — submitter name/org are stripped at ETL, so
+              signature-masking (collapsing letters that differ only in who signed them) is only possible
+              before that step.
+            </li>
+          </NoteList>
+        </div>
+
+        <div>
+          <NoteHead>Where this can go next</NoteHead>
+          <NoteList>
+            <li>
+              <Lead>Semantic dedupe &amp; topics</Lead> — embeddings + ANN to cluster by meaning, beyond
+              lexical near-dup; argument mining / batch-LLM stance to separate distinct substantive points
+              from boilerplate.
+            </li>
+            <li>
+              <Lead>Cross-docket campaign detection</Lead> — <Mono>skeleton_hash</Mono> is global, so the
+              same template reused across agencies is one <Mono>GROUP BY</Mono> away.
+            </li>
+            <li>
+              <Lead>Outlier surfacing</Lead> — TF-IDF / embedding distance to find the genuinely unique,
+              substantive comments buried inside a mass campaign.
+            </li>
+            <li>
+              <Lead>Incremental + cached</Lead> — recompute only changed partitions and append to rollups;
+              persist those rollups in IndexedDB / edge / CDN so repeat and shared views skip the scan
+              entirely.
+            </li>
+          </NoteList>
+        </div>
       </div>
     </details>
   );
+}
+
+function NoteHead({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--foreground)] mb-1.5">
+      {children}
+    </div>
+  );
+}
+
+function NoteList({ children }: { children: React.ReactNode }) {
+  return <ul className="list-disc pl-4 space-y-1.5 marker:text-[var(--border)]">{children}</ul>;
+}
+
+function Lead({ children }: { children: React.ReactNode }) {
+  return <span className="font-medium text-[var(--foreground)]">{children}</span>;
+}
+
+function Mono({ children }: { children: React.ReactNode }) {
+  return <span className="font-mono-id text-[var(--foreground)]">{children}</span>;
 }

@@ -10,6 +10,7 @@ import { FindingNote } from '../ui/PanelHeader';
 import { Card } from '../ui/Card';
 import { SectionLabel } from '../ui/SectionLabel';
 import { scoreStance, aggregateStance } from '@/lib/text/stance';
+import { computeOrchestration } from '@/lib/comments/orchestration';
 import { StanceSplit, StanceChip } from '../lab/stanceViz';
 
 /**
@@ -65,11 +66,8 @@ export function isPlaceholderCluster(c: Cluster): boolean {
 
 export function CommentBreakdown({ data }: { data: CommentBreakdownData }) {
   const { totals, clusters, volumeByDay, commentStartDate, commentEndDate } = data;
-  const realClusters = clusters.filter(c => !isPlaceholderCluster(c));
-  const formLetterClusters = realClusters.filter(c => c.n >= 2);
-  const orchestratedCount = formLetterClusters.reduce((s, c) => s + c.n, 0);
-  const uniquePct = totals.total === 0 ? 0 : ((totals.total - orchestratedCount) / totals.total) * 100;
-  const orchestratedPct = totals.total === 0 ? 0 : (orchestratedCount / totals.total) * 100;
+  const { formLetters: formLetterClusters, orchestratedCount, uniquePct, orchestratedPct } =
+    computeOrchestration(clusters, totals.total, isPlaceholderCluster);
 
   // Stance, scored once per template and weighted by cluster size.
   const stanced = useMemo(

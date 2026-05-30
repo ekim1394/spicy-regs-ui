@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { ExternalLink, FileText, Clock } from 'lucide-react';
 import { timeAgo } from '@/lib/agencyMetadata';
+import { daysUntil, deadlineLevel, DEADLINE_COLOR_VAR } from '@/lib/deadline';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import type { FederalRegisterDoc } from '@/lib/fr/types';
@@ -42,17 +43,11 @@ export function FederalRegisterPost({ doc, dashed = false }: FederalRegisterPost
       })
     : '';
 
-  // Open-comment urgency colors mirror DocketPost.
+  // Comment-window urgency on the shared deadline scale (see lib/deadline).
   const closeMs = doc.commentsCloseOn ? new Date(doc.commentsCloseOn).getTime() : null;
   const isOpenForComment = closeMs !== null && closeMs > Date.now();
-  const daysLeft = closeMs !== null
-    ? Math.ceil((closeMs - Date.now()) / (1000 * 60 * 60 * 24))
-    : 0;
-  const urgencyColor = (() => {
-    if (daysLeft < 3) return 'var(--accent-red, #dc2626)';
-    if (daysLeft < 14) return 'var(--accent-amber, #d97706)';
-    return 'var(--accent-green)';
-  })();
+  const daysLeft = daysUntil(doc.commentsCloseOn ?? null) ?? 0;
+  const urgencyColor = DEADLINE_COLOR_VAR[deadlineLevel(daysLeft)];
 
   // Presidential documents get a special second-line label.
   const presidentialLabel = doc.subtype && doc.documentType === 'Presidential Document'

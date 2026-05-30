@@ -2,21 +2,16 @@
 
 import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
+import { cn } from '@/lib/utils/cn';
 
 /**
- * Generic card surface.
- *
- * After the design-system refinement there is just ONE card; `variant` now
- * only selects the corner radius:
+ * Generic card surface. `variant` selects the corner radius:
  *
  * - `default` — the plain `.card` (1.5px border, 12px radius, accent border
  *   + soft indigo shadow on hover).
  * - `gradient` / `post` — `.card .card-lg`, the same card bumped to a 16px
  *   radius for feed posts, identity cards, feature tiles, and Lab panels.
- *   The old masked-gradient stroke (`.card-gradient`) and 2px accent resting
- *   frame (`.docket-post`) were removed — separation comes from the border,
- *   and the accent is freed to mean "action", not chrome. The two names are
- *   kept for call-site stability.
+ *   The two names are interchangeable aliases for the large radius.
  *
  * `asChild` (via Radix Slot) lets you forward the card chrome to a child
  * element like a `<Link>` so the entire card is clickable without an
@@ -53,7 +48,7 @@ export const Card = React.forwardRef<HTMLDivElement, CardProps>(function Card(
   return (
     <Comp
       ref={ref}
-      className={`${base} ${radius} ${className}`.replace(/\s+/g, ' ').trim()}
+      className={cn(base, radius, className)}
       {...rest}
     />
   );

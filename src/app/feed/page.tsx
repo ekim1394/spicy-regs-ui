@@ -67,6 +67,8 @@ function DocketFeed() {
   const [totalCount, setTotalCount] = useState<number | null>(null);
   // Monotonic load token — lets a newer load() discard a stale in-flight response.
   const reqRef = useRef(0);
+  // Tracks whether a load is in flight without making `load` depend on `loading`.
+  const inFlightRef = useRef(false);
 
   // Filters
   // Agency is URL-driven (no UI control): the agency profile's "View all
@@ -102,8 +104,9 @@ function DocketFeed() {
     if (!isReady) return;
     // Only the append path is blocked by an in-flight load; a reset (filter
     // change) must always supersede so a fast filter switch isn't dropped.
-    if (!reset && loading) return;
+    if (!reset && inFlightRef.current) return;
     const req = ++reqRef.current;
+    inFlightRef.current = true;
     try {
       setLoading(true);
       const dOff = reset ? 0 : docketOffset;
@@ -146,12 +149,13 @@ function DocketFeed() {
       if (req === reqRef.current) console.error('Failed to load feed:', err);
     } finally {
       if (req === reqRef.current) {
+        inFlightRef.current = false;
         setLoading(false);
         setInitialLoading(false);
       }
     }
   }, [
-    isReady, loading, docketOffset, frOffset, selectedAgency, sortBy, dateRange,
+    isReady, docketOffset, frOffset, selectedAgency, sortBy, dateRange,
     docketType, topic, interleaveFR, getRecentDocketsWithCounts, getRecentFederalRegister,
   ]);
 

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { DemoPill } from '@/components/lab/DemoPill';
+import { DemoPill } from '@/components/ui/DemoPill';
 
 export interface DocumentDetailProps {
   agencyCode: string;
@@ -9,7 +9,7 @@ export interface DocumentDetailProps {
   postedDate?: string | null;
   commentStartDate?: string | null;
   commentEndDate?: string | null;
-  /** FR document number — not in the data mirror today, so it wears a DemoPill. */
+  /** FR document number — not in the data mirror, so it wears a DemoPill. */
   frDocumentNumber?: string | null;
 }
 

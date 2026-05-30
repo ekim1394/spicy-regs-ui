@@ -4,7 +4,7 @@
  * One scale, applied identically everywhere a deadline appears — feed posts,
  * the docket header, the agency profile's open rulemakings, and the
  * DiscoveryRail "closing soon" readout — so "closes in 9d" reads the same
- * colour wherever you see it. Reference is the wireframe `StatusTag`:
+ * colour wherever you see it. `StatusTag` renders this scale:
  *
  *   days <= 3  → red    (closing)
  *   days <= 12 → amber  (soon)

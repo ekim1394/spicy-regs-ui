@@ -49,7 +49,7 @@ export function FindingNote({ children }: { children: ReactNode }) {
     <div
       className="mt-3 rounded-lg px-3.5 py-2.5 max-w-3xl text-sm leading-snug"
       style={{
-        background: 'rgba(59, 40, 246, 0.06)',
+        background: 'color-mix(in srgb, var(--accent-primary) 6%, transparent)',
         color: 'var(--foreground)',
       }}
     >

@@ -30,6 +30,10 @@ export default function DocumentPage() {
 
   useEffect(() => {
     if (!isReady || !docId) return;
+    // Clear stale state so navigating between documents shows the loading
+    // spinner instead of the previous document.
+    setLoading(true);
+    setDoc(null);
     getDocumentById(docId)
       .then((result) => { setDoc(result); setLoading(false); })
       .catch((err) => { console.error('Failed to load document:', err); setLoading(false); });
@@ -69,7 +73,7 @@ export default function DocumentPage() {
 
   return (
     <PageShell maxWidth="2xl" mainClassName="max-w-2xl mx-auto px-4 py-8">
-      {/* Breadcrumb — no stray back-arrow, consistent with the docket page */}
+      {/* Breadcrumb */}
       <nav className="text-xs text-[var(--muted)] mb-5">
         <Link href="/feed" className="hover:text-[var(--foreground)]">Feed</Link>
         {' → '}

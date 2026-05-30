@@ -5,8 +5,6 @@ import { ADMIN_ERAS, partyColor } from './adminTransitions';
 interface AdminBandsProps {
   xScale: ScaleTime<number, number>;
   height: number;
-  topOffset?: number;
-  showLabels?: boolean;
   /** Optional per-chart right-edge clamp. The band rect won't extend past this
    *  date even if the scale's domain ends later. Use this so the band stops at
    *  the last data point in a small multiple, not in unused trailing whitespace. */
@@ -16,10 +14,8 @@ interface AdminBandsProps {
 /**
  * Renders translucent rectangles across the chart background for each
  * presidential era, plus dashed vertical lines at the transition dates.
- * Reused by Brief 1 small multiples and (optionally) Brief 3 timeline.
  */
-export function AdminBands({ xScale, height, topOffset = 0, showLabels = false, clampMax }: AdminBandsProps) {
-  const [xMin, xMax] = xScale.range();
+export function AdminBands({ xScale, height, clampMax }: AdminBandsProps) {
   const domain = xScale.domain();
   const dMin = domain[0];
   const dMax = clampMax && clampMax < domain[1] ? clampMax : domain[1];
@@ -36,7 +32,7 @@ export function AdminBands({ xScale, height, topOffset = 0, showLabels = false, 
           <rect
             key={era.president}
             x={x}
-            y={topOffset}
+            y={0}
             width={w}
             height={height}
             fill={partyColor(era.party)}
@@ -52,34 +48,14 @@ export function AdminBands({ xScale, height, topOffset = 0, showLabels = false, 
             key={`line-${era.president}`}
             x1={x}
             x2={x}
-            y1={topOffset}
-            y2={topOffset + height}
+            y1={0}
+            y2={height}
             stroke="var(--muted)"
             strokeDasharray="3 3"
             strokeWidth={1}
             opacity={0.45}
             pointerEvents="none"
           />
-        );
-      })}
-      {showLabels && ADMIN_ERAS.map(era => {
-        if (era.end < dMin || era.start > dMax) return null;
-        const s = era.start < dMin ? dMin : era.start;
-        const e = era.end > dMax ? dMax : era.end;
-        const x = xScale(s) + (xScale(e) - xScale(s)) / 2;
-        if (x < xMin + 30 || x > xMax - 30) return null;
-        return (
-          <text
-            key={`label-${era.president}`}
-            x={x}
-            y={topOffset + 12}
-            textAnchor="middle"
-            fontSize={10}
-            fill="var(--muted)"
-            style={{ pointerEvents: 'none', fontWeight: 500 }}
-          >
-            {era.president}
-          </text>
         );
       })}
     </Group>

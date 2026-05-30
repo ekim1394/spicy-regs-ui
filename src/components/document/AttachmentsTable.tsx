@@ -11,8 +11,7 @@ export interface Attachment {
 /**
  * Attachments for a document. The data mirror carries a single `file_url` per
  * document row (often null) — no file size and no MIME type beyond the URL's
- * extension — so the table is File / Type / Download, and the "Size" column
- * from the wireframe is omitted rather than filled with placeholders.
+ * extension — so the table is File / Type / Download, with no size column.
  */
 export function AttachmentsTable({ attachments }: { attachments: Attachment[] }) {
   if (attachments.length === 0) {

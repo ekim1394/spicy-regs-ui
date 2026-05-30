@@ -3,17 +3,9 @@ import { Header } from '@/components/Header';
 
 /**
  * Standard page chrome: sticky Header, full-height tinted background, and
- * a centered max-width content column. Every route in the app reproduced
- * this boilerplate inline:
- *
- *     <div className="min-h-screen bg-[var(--background)]">
- *       <Header />
- *       <main className="max-w-{N}xl mx-auto px-4 py-{N}">…</main>
- *     </div>
- *
- * Replacing those with `<PageShell>` keeps the chrome consistent and gives
- * us one place to evolve it (e.g. adding a footer, a global banner, or
- * dark-mode toggle).
+ * a centered max-width content column. Keeps the chrome consistent across
+ * routes and gives one place to evolve it (e.g. adding a footer, a global
+ * banner, or a dark-mode toggle).
  */
 export type PageShellMaxWidth = '2xl' | '3xl' | '4xl' | '5xl' | '6xl' | '7xl';
 

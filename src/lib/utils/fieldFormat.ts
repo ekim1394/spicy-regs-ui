@@ -1,9 +1,6 @@
 /**
  * Canonical field-format helpers for raw rows coming out of Parquet/DuckDB.
- *
- * These were previously duplicated across DocketPost, ThreadedComments,
- * DocumentList, ExportButton, and three page files. Always import from
- * here — do not re-implement.
+ * Always import from here — do not re-implement at call sites.
  */
 
 /**

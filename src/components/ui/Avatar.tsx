@@ -3,23 +3,18 @@
 import * as React from 'react';
 import * as RadixAvatar from '@radix-ui/react-avatar';
 import { stringToColor, getInitials } from '@/lib/agencyMetadata';
+import { cn } from '@/lib/utils/cn';
 
 /**
  * Round avatar with image-with-fallback semantics, backed by Radix Avatar.
- *
- * Unifies the three avatar shapes the codebase had:
- *   - `AgencyAvatar` (favicon → colored badge w/ shortName)
- *   - `comment-avatar` CSS class (initials over hashed-string color)
- *   - the ad-hoc `w-5 h-5 rounded-full` in AgencySidebar related-agencies
  *
  * Defaults:
  *   - `color` is derived from `name` via `stringToColor` if not supplied.
  *   - `fallback` is `getInitials(name)` if not supplied.
  *
  * Radix's `Image` only mounts visible content once the underlying <img>
- * resolves successfully, so we get the favicon-with-fallback dance for
- * free without any of the `useState(faviconError)` boilerplate the
- * previous `AgencyAvatar` carried.
+ * resolves successfully, so the favicon-with-fallback behaviour comes for
+ * free with no error-state bookkeeping.
  */
 export type AvatarSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl';
 
@@ -67,7 +62,7 @@ export function Avatar({
 
   return (
     <RadixAvatar.Root
-      className={`inline-flex items-center justify-center align-middle overflow-hidden rounded-full flex-shrink-0 ${className}`}
+      className={cn('inline-flex items-center justify-center align-middle overflow-hidden rounded-full flex-shrink-0', className)}
       style={{ width: px, height: px }}
     >
       {src && (

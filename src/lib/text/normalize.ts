@@ -3,13 +3,12 @@
  * same comment."
  *
  * Two parallel implementations of the SAME transforms live here:
- *   - TS functions (`toDisplay`/`toCanonical`/`toSkeleton`/…) for the browser
- *     demo and unit tests.
+ *   - TS functions (`toDisplay`/`toCanonical`/`toSkeleton`/…) for in-browser
+ *     normalization and unit tests.
  *   - DuckDB SQL expression builders (`sql*`) so the identical logic runs inside
- *     the WASM engine on a live docket today, and — unchanged — inside the
- *     offline mirror pipeline tomorrow, where the results get baked into parquet
- *     columns (`canonical_hash`, `skeleton_hash`, `word_count`, …). The demo IS
- *     the production spec.
+ *     the WASM engine on a live docket. Keeping the two in lockstep means a
+ *     precomputed parquet column (`canonical_hash`, `skeleton_hash`,
+ *     `word_count`, …) can be swapped in without changing clustering behaviour.
  *
  * Three representations, increasingly aggressive:
  *   - display   — HTML/entities stripped, whitespace collapsed. What a card shows.
@@ -88,10 +87,9 @@ export function toSkeleton(display: string, identity?: SubmitterIdentity): strin
 /**
  * skeleton → order/edit-tolerant near-duplicate key: the sorted set of its
  * content tokens. Two letters that share their vocabulary but reorder or lightly
- * edit sentences collapse to the same key. This is a deliberately cheap, O(n),
- * single-pass stand-in for the production-grade near-dup method (SimHash/MinHash
- * LSH) recommended for the offline pipeline — it is coarser than `skeleton`, so
- * its clusters are always unions of skeleton clusters (loosening never splits).
+ * edit sentences collapse to the same key. A deliberately cheap, O(n),
+ * single-pass near-duplicate key — coarser than `skeleton`, so its clusters are
+ * always unions of skeleton clusters (loosening never splits).
  */
 export function toTokenSet(skeleton: string): string {
   const toks = skeleton.split(' ').filter((t) => t.length > 2);
@@ -100,8 +98,7 @@ export function toTokenSet(skeleton: string): string {
 
 /**
  * Placeholder comments ("see attached", blank) aren't orchestration — their
- * substance lives in an attachment we don't ingest. Generalizes the test that
- * was inline in CommentOrchestrationPanel.
+ * substance lives in an attachment we don't ingest.
  */
 export function isPlaceholder(display: string): boolean {
   const clean = display.trim().toLowerCase();

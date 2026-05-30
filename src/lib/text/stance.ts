@@ -8,13 +8,10 @@
  * black-box model.
  *
  * This is a heuristic — a SIGNAL, NOT A VERDICT. It keys off explicit phrases
- * and is fooled by negation ("I do not oppose") and sarcasm. Surface it labeled
- * as approximate. The high-fidelity production version belongs offline: run a
- * real classifier / batch-LLM label ONCE PER TEMPLATE (clustering collapses
- * hundreds of thousands of comments to a few dozen templates) and store
- * `stance` + `stance_confidence` columns keyed by `skeleton_hash`. This module
- * mimics that output shape so swapping it for the precomputed column is a
- * drop-in.
+ * and is fooled by negation ("I do not oppose") and sarcasm, so it is surfaced
+ * labeled as approximate. Its output shape (`stance` + a confidence score)
+ * matches what a precomputed per-template column would carry, so a higher-fidelity
+ * classifier keyed by `skeleton_hash` can replace it without call-site changes.
  */
 
 export type Stance = 'support' | 'oppose' | 'mixed' | 'unclear';

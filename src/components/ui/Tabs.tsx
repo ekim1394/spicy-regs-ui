@@ -3,6 +3,7 @@
 import * as React from 'react';
 import * as RadixTabs from '@radix-ui/react-tabs';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { cn } from '@/lib/utils/cn';
 
 /**
  * Thin styled wrapper on @radix-ui/react-tabs.
@@ -34,7 +35,7 @@ export const TabsList = React.forwardRef<
   return (
     <RadixTabs.List
       ref={ref}
-      className={`flex items-center gap-1 border-b border-[var(--border)] ${className}`}
+      className={cn('flex items-center gap-1 border-b border-[var(--border)]', className)}
       {...rest}
     />
   );
@@ -53,7 +54,7 @@ export const TabsTrigger = React.forwardRef<
   return (
     <RadixTabs.Trigger
       ref={ref}
-      className={`relative -mb-px inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 border-transparent text-[var(--muted)] transition-colors cursor-pointer hover:text-[var(--foreground)] data-[state=active]:border-[var(--accent-primary)] data-[state=active]:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/40 rounded-t-md ${className}`}
+      className={cn('relative -mb-px inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 border-transparent text-[var(--muted)] transition-colors cursor-pointer hover:text-[var(--foreground)] data-[state=active]:border-[var(--accent-primary)] data-[state=active]:text-[var(--foreground)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-primary)]/40 rounded-t-md', className)}
       {...rest}
     >
       {children}
@@ -73,7 +74,7 @@ export const TabsContent = React.forwardRef<
   return (
     <RadixTabs.Content
       ref={ref}
-      className={`focus-visible:outline-none ${className}`}
+      className={cn('focus-visible:outline-none', className)}
       {...rest}
     />
   );

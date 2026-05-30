@@ -11,7 +11,7 @@ import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
 import { useDuckDB } from '@/lib/duckdb/context';
 import { getAgencyInfo } from '@/lib/agencyMetadata';
 import { PanelHeader } from '@/components/ui/PanelHeader';
-import { DemoPill } from './DemoPill';
+import { DemoPill } from '@/components/ui/DemoPill';
 
 interface Summary {
   agency_code: string; n: number;
@@ -216,7 +216,7 @@ export function LifecyclePanel({ agencyCode }: LifecyclePanelProps = {}) {
               <DemoPill reason="The 'still pending' status is inferred from absence of a corresponding Final Rule document on the same docket. The upstream pipeline drops the regulations.gov 'withdrawn' flag and the RIN field, so we can't yet distinguish (a) abandoned, (b) withdrawn, (c) finalized under a sibling docket with a different ID, or (d) genuinely still open." />
             </div>
             <p className="text-xs text-[var(--muted)] mb-3 max-w-3xl leading-relaxed">
-              Proposed Rules from {single ? <>this agency</> : <>these eight agencies</>}, posted
+              Proposed Rules from these eight agencies, posted
               between 18 months and 8 years ago, that have <em>no Final Rule document</em> on the
               same docket. Some are genuinely pending. Many were withdrawn, abandoned, or finalized
               under a different docket ID that we can&apos;t link without the RIN field (currently

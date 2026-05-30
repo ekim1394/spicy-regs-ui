@@ -4,12 +4,8 @@ import * as React from 'react';
 import * as RadixDropdown from '@radix-ui/react-dropdown-menu';
 
 /**
- * Thin styled wrapper on @radix-ui/react-dropdown-menu.
- *
- * Replaces the hand-rolled outside-click + escape + ref-the-root-div
- * dance in ExportButton (and the home-grown shim in SearchInput's
- * combobox dropdown, though that one stays bespoke for now because the
- * combobox shape is non-trivial).
+ * Thin styled wrapper on @radix-ui/react-dropdown-menu. Radix handles the
+ * outside-click / escape / focus management; this layer only adds styling.
  *
  * Usage:
  *   <DropdownMenu>

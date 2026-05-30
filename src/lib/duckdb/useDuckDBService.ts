@@ -90,9 +90,9 @@ function buildFeedWhereClause(opts: FeedFilterOpts): string {
   }
 
   if (sortBy === 'open') {
-    conditions.push(`TRY_CAST(comment_end_date AS TIMESTAMP) > CAST(NOW() AS TIMESTAMP)`);
+    conditions.push(sqlCommentWindowOpen(true));
   } else if (sortBy === 'closed') {
-    conditions.push(`TRY_CAST(comment_end_date AS TIMESTAMP) < CAST(NOW() AS TIMESTAMP)`);
+    conditions.push(sqlCommentWindowOpen(false));
   }
 
   return conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
@@ -162,6 +162,15 @@ const FR_SELECT_COLS = `
 /** SQL escape: replace ' with ''. */
 function sqlStr(s: string): string {
   return s.replace(/'/g, "''");
+}
+
+/**
+ * Whether a docket's comment window is open (`true`) or already closed
+ * (`false`) as a SQL boolean expression. `CAST(NOW() AS TIMESTAMP)` is required
+ * because DuckDB-WASM has no TIMESTAMPTZ ± INTERVAL operator.
+ */
+function sqlCommentWindowOpen(open: boolean): string {
+  return `TRY_CAST(comment_end_date AS TIMESTAMP) ${open ? '>' : '<'} CAST(NOW() AS TIMESTAMP)`;
 }
 
 /**
@@ -400,32 +409,6 @@ export function useDuckDBService() {
       const query = `SELECT COUNT(*) AS count FROM ${feedSummaryRef()} ${whereClause}`;
       const rows = await runQuery<{ count: number }>(query);
       return Number(rows[0]?.count ?? 0);
-    },
-    [runQuery, isReady]
-  );
-
-  /** Legacy single-query version (used by detail pages) */
-  const getRecentDockets = useCallback(
-    async (
-      limit: number = 20,
-      offset: number = 0,
-      agencyCode?: string,
-      sortBy: 'recent' | 'popular' | 'open' = 'recent'
-    ): Promise<any[]> => {
-      if (!isReady) throw new Error("DuckDB not ready");
-
-      const conditions: string[] = [];
-      if (agencyCode) {
-        conditions.push(`agency_code = '${agencyCode.toUpperCase()}'`);
-      }
-
-      const whereClause =
-        conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-
-      const orderClause = 'ORDER BY modify_date DESC';
-      const cols = 'docket_id, agency_code, title, abstract, docket_type, modify_date';
-      const query = `SELECT ${cols} FROM ${parquetRef("dockets" as RegulationsDataTypes)} ${whereClause} ${orderClause} LIMIT ${limit} OFFSET ${offset}`;
-      return runQuery(query);
     },
     [runQuery, isReady]
   );
@@ -1222,7 +1205,7 @@ export function useDuckDBService() {
     [runQuery, isReady]
   );
 
-  /* ───────────── IA recast: discovery + agency/docket/document ───────────── */
+  /* ──────────── Discovery rail + agency / docket / document queries ──────────── */
 
   /**
    * DiscoveryRail signals — one focused query per signal kind, each capped to
@@ -1380,7 +1363,7 @@ export function useDuckDBService() {
         SELECT docket_id, agency_code, title, abstract, comment_count, comment_end_date, docket_type
         FROM ${feedSummaryRef()}
         WHERE agency_code = '${sqlStr(upper)}'
-          AND TRY_CAST(comment_end_date AS TIMESTAMP) > CAST(NOW() AS TIMESTAMP)
+          AND ${sqlCommentWindowOpen(true)}
         ORDER BY comment_end_date ASC
         LIMIT ${limit}
       `);
@@ -1452,7 +1435,6 @@ export function useDuckDBService() {
     getAgencies,
     getDockets,
     getDocketById,
-    getRecentDockets,
     getRecentDocketsWithCounts,
     getFeedCount,
     getCommentsForDocket,

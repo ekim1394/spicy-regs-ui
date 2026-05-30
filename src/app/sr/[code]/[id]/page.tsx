@@ -52,6 +52,10 @@ function DocketDetailInner() {
 
   useEffect(() => {
     if (!isReady || !docketId) return;
+    // Clear stale state so navigating between dockets on this route segment
+    // shows the loading spinner instead of the previous docket's content.
+    setLoading(true);
+    setDocket(null);
     getDocketById(docketId)
       .then((result) => { setDocket(result); setLoading(false); })
       .catch((err) => { console.error('Failed to load docket:', err); setLoading(false); });
@@ -60,6 +64,7 @@ function DocketDetailInner() {
   useEffect(() => {
     if (!isReady || !docketId) return;
     setDocsLoading(true);
+    setDocuments([]);
     getDocumentsForDocket(docketId)
       .then((docs) => { setDocuments(docs); setDocsLoading(false); })
       .catch((err) => { console.error('Failed to load documents:', err); setDocsLoading(false); });
@@ -67,6 +72,7 @@ function DocketDetailInner() {
 
   useEffect(() => {
     if (!isReady || !docketId) return;
+    setCommentCount(undefined);
     getCommentCounts([docketId])
       .then((counts) => setCommentCount(counts[docketId.toUpperCase()] ?? 0))
       .catch((err) => console.error('Failed to load comment count:', err));

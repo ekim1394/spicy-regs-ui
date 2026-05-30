@@ -1,8 +1,9 @@
 import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
+import { cn } from '@/lib/utils/cn';
 
 /**
- * The two button treatments the app had been re-soldering inline:
+ * The two button treatments:
  *
  * - `primary` — filled electric-indigo CTA (`.btn-primary`). The single
  *   high-emphasis action: "View all dockets", "Browse the feed".
@@ -32,7 +33,8 @@ const VARIANT_CLASS: Record<ButtonVariant, string> = {
   secondary: 'btn-secondary',
 };
 
-const BASE = 'inline-flex items-center justify-center cursor-pointer';
+const BASE =
+  'inline-flex items-center justify-center cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed';
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function Button(
   { variant = 'primary', asChild = false, className = '', ...rest },
@@ -42,7 +44,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(function 
   return (
     <Comp
       ref={ref}
-      className={`${BASE} ${VARIANT_CLASS[variant]} ${className}`}
+      className={cn(BASE, VARIANT_CLASS[variant], className)}
       {...rest}
     />
   );

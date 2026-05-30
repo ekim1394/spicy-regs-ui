@@ -6,6 +6,7 @@ import { AgencyActivityPanel } from '@/components/lab/AgencyActivityPanel';
 import { CommentOrchestrationPanel } from '@/components/lab/CommentOrchestrationPanel';
 import { CommentFidelityPanel } from '@/components/lab/CommentFidelityPanel';
 import { LifecyclePanel } from '@/components/lab/LifecyclePanel';
+import { DemoPill } from '@/components/ui/DemoPill';
 
 export default function LabPage() {
   return (
@@ -65,16 +66,7 @@ function SimulatedTooltip() {
           Every count, date, comment, and rule is queried live from parquet files
           mirrored on R2. These fields, however, are dropped at the ETL extract step
           and don&apos;t exist in the mirror — anywhere they affect a value you&apos;ll see a small{' '}
-          <span
-            className="inline-flex items-center px-1.5 py-px rounded-md text-[10px] font-medium uppercase tracking-wider align-baseline"
-            style={{
-              background: 'rgba(217, 119, 6, 0.12)',
-              color: 'var(--accent-amber)',
-              border: '1px solid rgba(217, 119, 6, 0.25)',
-            }}
-          >
-            demo
-          </span>{' '}
+          <DemoPill className="align-baseline" />{' '}
           pill:
         </span>
         <span className="block mt-1 text-[var(--muted)]">
