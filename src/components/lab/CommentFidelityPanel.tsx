@@ -85,7 +85,7 @@ export function CommentFidelityPanel() {
             as thousands of &ldquo;unique&rdquo; submissions), then loosen to{' '}
             <strong>template</strong> and <strong>near-duplicate</strong> and watch the
             uniqueness collapse. All three run live in the browser; the looser ones are
-            cheap, transparent stand-ins for the production methods described below.
+            cheap, transparent stand-ins for the offline/server methods outlined below.
           </>
         }
       />
@@ -258,9 +258,9 @@ function TierToggle({ active, onChange }: { active: Tier; onChange: (t: Tier) =>
 }
 
 /**
- * Generalizable architecture note: what aggregation the lab does client-side,
- * what belongs on a server / offline tier, and where to extend. Applies to the
- * whole lab, not just this panel.
+ * Short pointer to the full architecture writeup. The lab's client-side
+ * aggregation and the offline/server tier it implies are documented in
+ * docs/architecture.md; this panel links there instead of duplicating it.
  */
 function FullStackNote() {
   return (
@@ -268,126 +268,30 @@ function FullStackNote() {
       <summary className="cursor-pointer font-semibold text-[var(--foreground)]">
         Architecture: client-side aggregation, and the path to a server tier
       </summary>
-      <div className="mt-3 space-y-4 max-w-3xl leading-relaxed">
+      <div className="mt-3 space-y-3 max-w-3xl leading-relaxed">
         <p>
-          Every chart in the lab computes <em>on the client</em>: DuckDB-WASM reads column-pruned,
-          predicate-pushed Parquet straight from R2 over HTTP range requests, so there is no backend to
-          run. That keeps deploys instant and queries fully ad-hoc — but it also means every viewer
-          re-runs the same scan, and per-row work over millions of rows (live hashing, fuzzy matching,
-          embeddings) is slow or simply infeasible. The split below is where a server / offline tier earns
-          its keep.
+          Every chart in the lab computes <em>on the client</em>: DuckDB-WASM reads
+          column-pruned, predicate-pushed Parquet straight from R2 over HTTP range requests,
+          so there is no backend to run. That keeps deploys instant and queries ad-hoc, but
+          every viewer re-runs the same scan, and per-row work over millions of rows (live
+          hashing, fuzzy matching, embeddings) is slow or infeasible. The looser tiers above
+          are cheap stand-ins for methods that belong on an offline/server tier.
         </p>
-
-        <div>
-          <NoteHead>What the browser aggregates today</NoteHead>
-          <NoteList>
-            <li>
-              <Lead>Counting &amp; distinct</Lead> — <Mono>COUNT</Mono>/<Mono>COUNT DISTINCT</Mono>/
-              <Mono>SUM(row_count)</Mono>, mostly answered from the tiny <Mono>comments_index</Mono> and{' '}
-              <Mono>feed_summary</Mono> so they never read the multi-GB comment files.
-            </li>
-            <li>
-              <Lead>Time-bucketing</Lead> — <Mono>date_trunc</Mono> to day/month +{' '}
-              <Mono>GROUP BY</Mono> (agency activity, comments-per-day, discovery surges).
-            </li>
-            <li>
-              <Lead>Distributions</Lead> — <Mono>quantile_cont</Mono> percentiles, min/max, window-function
-              ranked samples, and deterministic <Mono>hash()</Mono> bucketing (rulemaking lifecycles).
-            </li>
-            <li>
-              <Lead>Text clustering</Lead> — <Mono>md5</Mono> over the shared{' '}
-              <Mono>lib/text/normalize</Mono> skeleton (exact + template tiers).
-            </li>
-            <li>
-              <Lead>Fuzzy near-dup</Lead> — a sorted token-set key (this panel&rsquo;s default), a cheap
-              O(n) stand-in for the real thing.
-            </li>
-            <li>
-              <Lead>Stance</Lead> — a phrase lexicon scored per template in JS, weighted by cluster size.
-            </li>
-            <li>
-              <Lead>Search &amp; sampling</Lead> — <Mono>ILIKE</Mono>/JSON-array substring scans, and{' '}
-              <Mono>ORDER BY random()</Mono> over the index. All results are <Mono>LIMIT</Mono>-bounded;
-              caches are in-memory only (<Mono>useRef</Mono>/state).
-            </li>
-          </NoteList>
-        </div>
-
-        <div>
-          <NoteHead>What moves to the offline mirror / server</NoteHead>
-          <NoteList>
-            <li>
-              <Lead>Precompute derived columns at ETL</Lead> — <Mono>skeleton_hash</Mono>,{' '}
-              <Mono>simhash</Mono>, <Mono>word_count</Mono>, <Mono>is_placeholder</Mono>, and a per-template{' '}
-              <Mono>stance</Mono> + confidence keyed by <Mono>skeleton_hash</Mono>. Clustering then collapses
-              to <Mono>GROUP BY skeleton_hash</Mono> — no live hashing of 370k strings.
-            </li>
-            <li>
-              <Lead>Materialize rollups</Lead> — the way <Mono>feed_summary</Mono> already pre-bakes counts:
-              per-docket cluster summaries, per-agency monthly volume, lifecycle percentiles, discovery
-              signals. Each becomes a few-KB artifact the page reads instead of scanning{' '}
-              <Mono>documents.parquet</Mono> (~57 MB) or the index on every load.
-            </li>
-            <li>
-              <Lead>Heavy near-dup offline</Lead> — a 64-bit SimHash / MinHash + Hamming-band LSH per
-              comment: still O(n), but robust to rewording in a way the token-set key isn&rsquo;t.
-            </li>
-            <li>
-              <Lead>A real search index</Lead> — FTS/BM25 or an inverted index instead of full-scan{' '}
-              <Mono>ILIKE</Mono> over ~793k Federal Register rows.
-            </li>
-            <li>
-              <Lead>Recover dropped fields</Lead> — submitter name/org are stripped at ETL, so
-              signature-masking (collapsing letters that differ only in who signed them) is only possible
-              before that step.
-            </li>
-          </NoteList>
-        </div>
-
-        <div>
-          <NoteHead>Where this can go next</NoteHead>
-          <NoteList>
-            <li>
-              <Lead>Semantic dedupe &amp; topics</Lead> — embeddings + ANN to cluster by meaning, beyond
-              lexical near-dup; argument mining / batch-LLM stance to separate distinct substantive points
-              from boilerplate.
-            </li>
-            <li>
-              <Lead>Cross-docket campaign detection</Lead> — <Mono>skeleton_hash</Mono> is global, so the
-              same template reused across agencies is one <Mono>GROUP BY</Mono> away.
-            </li>
-            <li>
-              <Lead>Outlier surfacing</Lead> — TF-IDF / embedding distance to find the genuinely unique,
-              substantive comments buried inside a mass campaign.
-            </li>
-            <li>
-              <Lead>Incremental + cached</Lead> — recompute only changed partitions and append to rollups;
-              persist those rollups in IndexedDB / edge / CDN so repeat and shared views skip the scan
-              entirely.
-            </li>
-          </NoteList>
-        </div>
+        <p>
+          Which aggregations move to materialized views, which fields dropped at ETL block
+          features, and where this can go next (SimHash/LSH, a real search index, semantic
+          dedupe) are written up in{' '}
+          <a
+            href="https://github.com/civictechdc/spicy-regs/blob/main/docs/architecture.md"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline hover:text-[var(--foreground)]"
+          >
+            docs/architecture.md
+          </a>
+          .
+        </p>
       </div>
     </details>
   );
-}
-
-function NoteHead({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="text-[11px] font-semibold uppercase tracking-wider text-[var(--foreground)] mb-1.5">
-      {children}
-    </div>
-  );
-}
-
-function NoteList({ children }: { children: React.ReactNode }) {
-  return <ul className="list-disc pl-4 space-y-1.5 marker:text-[var(--border)]">{children}</ul>;
-}
-
-function Lead({ children }: { children: React.ReactNode }) {
-  return <span className="font-medium text-[var(--foreground)]">{children}</span>;
-}
-
-function Mono({ children }: { children: React.ReactNode }) {
-  return <span className="font-mono-id text-[var(--foreground)]">{children}</span>;
 }
