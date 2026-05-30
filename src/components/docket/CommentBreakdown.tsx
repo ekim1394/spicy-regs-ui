@@ -203,7 +203,7 @@ function ChartLegend({
 }) {
   const hasWindow = commentStartDate || commentEndDate;
   return (
-    <span className="font-normal normal-case tracking-normal text-[var(--muted)] inline-flex flex-wrap items-center gap-x-3 gap-y-1">
+    <span className="text-[10.5px] font-normal normal-case tracking-normal text-[var(--muted)] inline-flex flex-wrap items-center gap-x-3 gap-y-1">
       {hasWindow && (
         <span className="inline-flex items-center gap-1.5">
           <span

@@ -202,27 +202,6 @@ h3 {
 }
 
 /* ─── Document List ─── */
-.document-list {
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 1.25rem;
-}
-
-.document-list .section-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-family: var(--font-body);
-  font-size: var(--text-h3);
-  font-weight: 600;
-  letter-spacing: -0.005em;
-  color: var(--foreground);
-  margin-bottom: 1rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--border-subtle);
-}
-
 .document-card {
   padding: 0.875rem 1rem;
   border-radius: var(--radius-sm);
@@ -244,7 +223,9 @@ h3 {
 
 .thread-line {
   position: absolute;
-  left: 0.875rem;
+  /* Centered on the avatar: comment-thread padding-left (1.25rem) + half the
+     28px sm avatar (0.875rem) = 2.125rem center, minus half the 2px line. */
+  left: calc(2.125rem - 1px);
   top: 2.5rem;
   bottom: 0;
   width: 2px;

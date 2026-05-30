@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { FileText, Download } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { timeAgo } from '@/lib/agencyMetadata';
 import { daysUntil, deadlineLevel, DEADLINE_COLOR_VAR } from '@/lib/deadline';
 import { stripQuotes } from '@/lib/utils/fieldFormat';
@@ -21,29 +21,22 @@ interface DocumentListProps {
 export function DocumentList({ documents, loading = false, agencyCode, docketId }: DocumentListProps) {
   if (loading) {
     return (
-      <div className="document-list">
-        <h3 className="section-title">
-          <FileText size={16} />
-          Documents
-        </h3>
-        <div className="flex justify-center py-8 text-sm text-[var(--muted)]">
-          Loading documents...
-        </div>
+      <div className="flex justify-center py-8 text-sm text-[var(--muted)]">
+        Loading documents...
       </div>
     );
   }
 
   if (documents.length === 0) {
-    return null;
+    return (
+      <p className="text-sm text-[var(--muted)] py-4 text-center">
+        No documents found for this docket.
+      </p>
+    );
   }
 
   return (
-    <div className="document-list">
-      <h3 className="section-title">
-        <FileText size={16} />
-        Documents ({documents.length})
-      </h3>
-      <div className="space-y-2">
+    <div className="space-y-2">
         {documents.map((doc, i) => {
           const docId = stripQuotes(doc.document_id);
           const title = stripQuotes(doc.title) || docId;
@@ -128,7 +121,6 @@ export function DocumentList({ documents, loading = false, agencyCode, docketId 
             </div>
           );
         })}
-      </div>
     </div>
   );
 }

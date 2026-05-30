@@ -69,14 +69,18 @@ export function AgencyIdentity({
   }, [statsProp, isReady, agencyCode, getAgencyStats]);
 
   return (
-    <Card variant="gradient" className="overflow-hidden">
-      {label && <SectionLabel label={label} className="px-4 pt-3" />}
-
-      {/* Agency-tinted wash */}
+    <Card variant="gradient" className="relative overflow-hidden">
+      {/* Agency-tinted wash banner — the avatar below overlaps its lower edge.
+          The optional label sits over the banner as a corner caption rather
+          than stacked above it, so the docket page reads identically to the
+          profile page instead of opening a faint empty band above the badge. */}
       <div
         className="h-14"
         style={{ background: `linear-gradient(135deg, ${agency.color}33, ${agency.color}0f)` }}
       />
+      {label && (
+        <SectionLabel label={label} className="absolute top-0 left-0 px-4 pt-3" />
+      )}
 
       <div className="px-4 pb-4 -mt-6">
         <Avatar

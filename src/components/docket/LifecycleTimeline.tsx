@@ -97,7 +97,7 @@ export function LifecycleTimeline({ documents, commentStartDate, commentEndDate 
 
   return (
     <div>
-      <div className="flex items-end max-w-md">
+      <div className="flex items-end w-full">
         {stages.map((s, i) => {
           const filled = s.state === 'done' || s.state === 'active';
           return (

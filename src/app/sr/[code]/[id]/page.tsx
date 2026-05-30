@@ -223,25 +223,25 @@ function DocketDetailInner() {
                 </section>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <RelatedDockets docketId={docketId} title={title} />
-                <RelatedFederalRegister docketId={docketId} />
-              </div>
+              <RelatedFederalRegister docketId={docketId} />
             </TabsContent>
 
-            {/* Documents */}
+            {/* Documents — the tab itself is the heading, so the panel carries
+                no redundant section label (unlike Overview's multi-section stack). */}
             <TabsContent value="documents" className="pt-5">
-              <DocumentList
-                documents={documents}
-                loading={docsLoading}
-                agencyCode={agencyCode}
-                docketId={docketId}
-              />
+              <Card interactive={false} className="p-4">
+                <DocumentList
+                  documents={documents}
+                  loading={docsLoading}
+                  agencyCode={agencyCode}
+                  docketId={docketId}
+                />
+              </Card>
             </TabsContent>
 
             {/* Comments */}
-            <TabsContent value="comments" className="pt-5 flex flex-col gap-5">
-              <Card interactive={false} className="overflow-hidden">
+            <TabsContent value="comments" className="pt-5">
+              <Card interactive={false} className="p-4">
                 <ThreadedComments docketId={docketId} modifyDate={stripQuotes(docket.modify_date)} />
               </Card>
             </TabsContent>
@@ -250,13 +250,14 @@ function DocketDetailInner() {
 
         {/* Sticky agency identity rail */}
         <div className="hidden lg:block w-72 flex-shrink-0">
-          <div className="sticky top-20">
+          <div className="sticky top-20 flex flex-col gap-6">
             <AgencyIdentity
               agencyCode={agencyCode}
               label="Agency"
               cta="View agency profile →"
               href={`/sr/${agencyCode}`}
             />
+            <RelatedDockets docketId={docketId} title={title} />
           </div>
         </div>
       </div>

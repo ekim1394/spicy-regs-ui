@@ -204,68 +204,62 @@ export function ThreadedComments({ docketId, modifyDate }: ThreadedCommentsProps
   };
 
   return (
-    <div className="border-t border-[var(--border)] bg-[var(--surface-elevated)]">
-      <div className="px-5 py-3">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-semibold text-[var(--foreground)]">
-            Comments
-          </span>
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-[var(--muted)] mr-1">Sort by:</span>
-            <button
-              onClick={() => handleSortChange('recent')}
-              className={`filter-chip text-xs !px-2 !py-0.5 ${sortBy === 'recent' ? 'filter-chip-active' : ''}`}
-            >
-              Recent
-            </button>
-            <button
-              onClick={() => handleSortChange('oldest')}
-              className={`filter-chip text-xs !px-2 !py-0.5 ${sortBy === 'oldest' ? 'filter-chip-active' : ''}`}
-            >
-              Oldest
-            </button>
-          </div>
-        </div>
-
-        {/* Comment List */}
-        {comments.length === 0 && !loading && (
-          <p className="text-sm text-[var(--muted)] py-4 text-center">
-            No comments found for this docket.
-          </p>
-        )}
-
-        {comments.map((c, i) => (
-          <CommentItem key={`${c.commentId}-${i}`} data={c} />
-        ))}
-
-        {/* Load More */}
-        {hasMore && (
-          <button
-            onClick={() => loadComments(false)}
-            disabled={loading}
-            className="w-full mt-2 py-2 text-sm font-medium text-[var(--accent-primary)] hover:bg-[var(--surface-elevated)] rounded-lg transition-colors flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-                <Loader2 size={14} className="animate-spin" />
-                Loading...
-              </>
-            ) : (
-              <>
-                <ChevronDown size={14} />
-                Load more comments
-              </>
-            )}
-          </button>
-        )}
-
-        {loading && comments.length === 0 && (
-          <div className="flex justify-center py-6">
-            <Loader2 size={20} className="animate-spin text-[var(--accent-primary)]" />
-          </div>
-        )}
+    <div>
+      {/* Sort control — the section heading itself is supplied by the page's
+          SectionLabel so this tab matches the Overview/Documents panels. */}
+      <div className="flex items-center justify-end gap-1 mb-3">
+        <span className="text-xs text-[var(--muted)] mr-1">Sort by:</span>
+        <button
+          onClick={() => handleSortChange('recent')}
+          className={`filter-chip text-xs !px-2 !py-0.5 ${sortBy === 'recent' ? 'filter-chip-active' : ''}`}
+        >
+          Recent
+        </button>
+        <button
+          onClick={() => handleSortChange('oldest')}
+          className={`filter-chip text-xs !px-2 !py-0.5 ${sortBy === 'oldest' ? 'filter-chip-active' : ''}`}
+        >
+          Oldest
+        </button>
       </div>
+
+      {/* Comment List */}
+      {comments.length === 0 && !loading && (
+        <p className="text-sm text-[var(--muted)] py-4 text-center">
+          No comments found for this docket.
+        </p>
+      )}
+
+      {comments.map((c, i) => (
+        <CommentItem key={`${c.commentId}-${i}`} data={c} />
+      ))}
+
+      {/* Load More */}
+      {hasMore && (
+        <button
+          onClick={() => loadComments(false)}
+          disabled={loading}
+          className="w-full mt-2 py-2 text-sm font-medium text-[var(--accent-primary)] hover:bg-[var(--surface-elevated)] rounded-lg transition-colors flex items-center justify-center gap-2"
+        >
+          {loading ? (
+            <>
+              <Loader2 size={14} className="animate-spin" />
+              Loading...
+            </>
+          ) : (
+            <>
+              <ChevronDown size={14} />
+              Load more comments
+            </>
+          )}
+        </button>
+      )}
+
+      {loading && comments.length === 0 && (
+        <div className="flex justify-center py-6">
+          <Loader2 size={20} className="animate-spin text-[var(--accent-primary)]" />
+        </div>
+      )}
     </div>
   );
 }
