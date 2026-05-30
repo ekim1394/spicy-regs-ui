@@ -3,7 +3,6 @@ import { Rss, Building2, MessageSquare, Search } from 'lucide-react';
 import { ContentPage } from '@/components/content/ContentPage';
 import { ContentSection } from '@/components/content/ContentSection';
 import { Feature } from '@/components/content/Feature';
-import { TransparencyCallout } from '@/components/content/TransparencyCallout';
 import { Button } from '@/components/ui/Button';
 
 const GITHUB_URL = 'https://github.com/civictechdc/spicy-regs';
@@ -51,7 +50,6 @@ export default function AboutPage() {
           Parquet files on Cloudflare R2 over HTTP range requests. No backend, no API keys, no
           tracking. The data comes straight to your tab.
         </p>
-        <TransparencyCallout />
       </ContentSection>
 
       <ContentSection title="Open source">
