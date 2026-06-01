@@ -7,8 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",
-    "test": "vitest run --pool=forks --environment=node --testTimeout 30000 'integration'",
-    "test:ui": "vitest run --dir src/components"
+    "test": "vitest run --exclude '**/*.integration.*'",
+    "test:coverage": "vitest run --exclude '**/*.integration.*' --coverage",
+    "test:ui": "vitest run --dir src/components",
+    "test:integration": "vitest run --pool=forks --environment=node --testTimeout 30000 'integration'"
   },
   "dependencies": {
     "@duckdb/duckdb-wasm": "^1.30.0",
@@ -52,6 +54,7 @@
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
+    "@vitest/coverage-v8": "^4.1.8",
     "baseline-browser-mapping": "^2.9.4",
     "concurrently": "^9.2.1",
     "eslint": "^9.39.1",
