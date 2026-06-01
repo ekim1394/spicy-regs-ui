@@ -18,14 +18,21 @@ so they come first.
 
 | Field | Currently | Unblocks | Status in code |
 |---|---|---|---|
-| comment `first_name` / `last_name` / `organization` | stripped from comment partitions | signature-masking, so form letters identical but for who signed collapse into one cluster | `sqlStripName` stage is **wired but inert** in `getCommentClustersMultiTier`; `toSkeleton` mirrors it in TS |
+| comment `first_name` / `last_name` / `organization` | dropped at ingest from **both** the comment partitions **and** the flat `comments.parquet` (confirmed 2026-05-30 via `DESCRIBE`; both carry only `comment_id, docket_id, agency_code, title, comment, document_type, posted_date, modify_date, receive_date, attachments_json`) | signature-masking (form letters identical but for who signed collapse into one cluster) **and** the individual-vs-organization split + org leaderboard | `sqlStripName` stage is **wired but inert** in `getCommentClustersMultiTier`; `toSkeleton` mirrors it in TS. `ThreadedComments` reads `organization` → always `undefined`, so its `isOrg`/"Organization" badge is **dead code** until the column lands |
+| comment `category` (submitter type) | absent | the individual / organization / govt classification directly, without heuristics over title+body | not rendered; would replace any keyword-based org/individual guesser |
 | `withdrawn` / `reason_withdrawn` | absent | the abandoned vs. withdrawn vs. pending distinction in the lifecycle view | rendered as `DemoPill`; lifecycle "stuck" logic is a heuristic age-window workaround |
 | `rin` / `additional_rins` | absent | linking dockets in one multi-stage rulemaking, and cross-docket campaign joins | `DemoPill` |
 | document attachments | one nullable `file_url` per doc row | a real attachment list, size, MIME, FR document number | Document page degrades to 0-or-1 attachment, drops the Size column |
 
 Start with the submitter-name gap. It's the difference between the current near-dup
 heuristic and correct campaign attribution, the pipeline already has the transform spec
-(`lib/text/normalize.ts`), and the SQL stage is in place waiting for the columns.
+(`lib/text/normalize.ts`), and the SQL stage is in place waiting for the columns. The same
+ingest pass that recovers `organization`/`category` is the **only** path to systematic
+org-name aggregates: there is no client-side fallback, because the columns are absent from
+the flat file too and a keyword heuristic over `title`+`comment` can't run over the largest
+dockets (>1M comments) in the browser. Recovering these also lights up two inert features
+for free — the dead `isOrg` badge, and the `sqlStripName` masking that sharpens the
+form-letter clustering below.
 
 ---
 
@@ -59,6 +66,16 @@ The docket Comments tab and the orchestration/fidelity panels cluster form lette
 the browser: clean → strip contacts → skeleton → `md5` → `GROUP BY key`, with a sorted-token
 near-dup tier on top. Cost scales O(rows); a high-volume docket hashes every comment on the
 main thread on every view.
+
+On top of that, the docket breakdown now runs a **second, client-side agglomeration pass**
+([`lib/comments/templates.ts`](../src/lib/comments/templates.ts) `agglomerateTemplates`):
+single-linkage merge of the near-dup clusters by token-set Jaccard (≥0.8) so the small
+wording variants one campaign produces collapse into a single *template family* with one
+share figure (`getCommentVolumeAndClusters` returns each cluster's pre-hash token-set string
+for this). It only merges, never splits, so orchestration counts are unchanged. This is a
+deliberately cheap stand-in for the SimHash/MinHash + LSH below — precomputing those at ETL
+would make this client agglomeration unnecessary (the families would fall out of a single
+`GROUP BY` on a baked near-dup band).
 
 The transform spec lives in [`lib/text/normalize.ts`](../src/lib/text/normalize.ts) as two
 parallel implementations of the same logic (TS for the browser, DuckDB SQL builders for
