@@ -78,11 +78,13 @@ export function LifecycleTimeline({ documents, commentStartDate, commentEndDate 
   }, [documents, commentEndDate]);
 
   // The comment window: the page's single source of "can I still act", and the
-  // only element here allowed to carry colour.
-  const startStr = fmtDate(commentStartDate);
+  // only element here allowed to carry colour. When both ends of the window are
+  // known we render a progress bar (length + position + open/closed); otherwise
+  // we fall back to a one-line status.
   const endStr = fmtDate(commentEndDate);
   const days = daysUntil(commentEndDate);
   const isOpen = days != null && days >= 0;
+  const hasWindow = Boolean(commentStartDate && commentEndDate);
 
   let statusText: string | null = null;
   let statusColor = 'var(--muted)';
@@ -91,8 +93,6 @@ export function LifecycleTimeline({ documents, commentStartDate, commentEndDate 
     statusColor = DEADLINE_COLOR_VAR[deadlineLevel(days)];
   } else if (days != null) {
     statusText = endStr ? `Comment window closed · ended ${endStr}` : 'Comment window closed';
-  } else if (startStr && endStr) {
-    statusText = `Comment window · ${startStr} – ${endStr}`;
   }
 
   return (
@@ -157,11 +157,74 @@ export function LifecycleTimeline({ documents, commentStartDate, commentEndDate 
         })}
       </div>
 
-      {statusText && (
+      {hasWindow ? (
+        <CommentPeriodBar startDate={commentStartDate!} endDate={commentEndDate!} />
+      ) : statusText ? (
         <div className="mt-3 text-[11px] font-medium" style={{ color: statusColor }}>
           {statusText}
         </div>
-      )}
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Comment-period progress bar: the full length of the window as a track, the
+ * elapsed portion filled, and the boundary between them marking "now". Reads at
+ * a glance — how long the period is, whether it's open, and where we are in it —
+ * and borrows the comment chart's accent fill so the two views speak the same
+ * visual language. The fill carries the deadline colour while open (green →
+ * amber → red as the close approaches) and goes muted once the window closes.
+ */
+function CommentPeriodBar({ startDate, endDate }: { startDate: string; endDate: string }) {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const startMs = start.getTime();
+  const endMs = end.getTime();
+  if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) {
+    return (
+      <div className="mt-3 text-[11px] font-medium text-[var(--muted)]">
+        Comment window · {fmtDate(startDate)} – {fmtDate(endDate)}
+      </div>
+    );
+  }
+
+  const dayMs = 24 * 60 * 60 * 1000;
+  const totalDays = Math.max(1, Math.round((endMs - startMs) / dayMs));
+  const days = daysUntil(endDate);
+  const isOpen = days != null && days >= 0;
+
+  // Elapsed fraction of the window, clamped so a closed/not-yet-open period
+  // renders a full/empty bar rather than overshooting.
+  const frac = Math.min(1, Math.max(0, (Date.now() - startMs) / (endMs - startMs)));
+  const fillColor = isOpen && days != null ? DEADLINE_COLOR_VAR[deadlineLevel(days)] : 'var(--muted-foreground)';
+
+  let rightLabel: string;
+  if (isOpen && days != null) rightLabel = days <= 0 ? 'Closes today' : `${days}d left`;
+  else if (days != null) rightLabel = 'Closed';
+  else rightLabel = '';
+
+  return (
+    <div className="mt-3">
+      <div className="flex items-baseline justify-between gap-2 mb-1.5 text-[11px]">
+        <span className="font-medium text-[var(--muted)]">{totalDays}-day comment period</span>
+        {rightLabel && (
+          <span className="font-semibold" style={{ color: fillColor }}>{rightLabel}</span>
+        )}
+      </div>
+      <div
+        className="relative h-1.5 rounded-full overflow-hidden"
+        style={{ background: 'color-mix(in srgb, var(--accent-primary) 12%, transparent)' }}
+      >
+        <div
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{ width: `${frac * 100}%`, background: fillColor }}
+        />
+      </div>
+      <div className="flex items-center justify-between mt-1 text-[10px] text-[var(--muted-foreground)]">
+        <span>{fmtDate(startDate)}</span>
+        <span>{fmtDate(endDate)}</span>
+      </div>
     </div>
   );
 }

@@ -25,62 +25,99 @@ export interface StanceResult {
 }
 
 /**
- * Curated cue phrases. Lowercased; matched as substrings against lowercased
- * comment text. Ordered roughly strongest-signal first for readability; order
- * does not affect scoring.
+ * Curated cue phrases, lowercased. Each is compiled to a whole-word
+ * (`\b`-anchored) regex and matched against lowercased comment text — so
+ * `commend` no longer fires inside `recommend`. A trailing `*` on a word marks
+ * it as a stance verb and widens the match to its inflectional forms:
+ * `oppose*` matches oppose/opposes/opposed/opposing, `support*` matches
+ * support/supports/supported/supporting. Mark only the verb, never the object
+ * ("reject* this", not "reject this*"). Words without `*` match literally.
+ * Ordered roughly strongest-signal first for readability; order does not affect
+ * scoring.
  */
 export const SUPPORT_PHRASES: readonly string[] = [
-  'strongly support',
-  'fully support',
-  'i support',
-  'we support',
-  'support this rule',
-  'support the proposed',
-  'support this proposal',
+  'strongly support*',
+  'fully support*',
+  'i support*',
+  'we support*',
+  'support* this rule',
+  'support* the proposed',
+  'support* this proposal',
   'in favor of',
   'in support of',
-  'urge you to adopt',
-  'urge you to finalize',
-  'urge the adoption',
-  'please finalize',
-  'please adopt',
-  'applaud',
-  'commend',
+  'offer* support',
+  'voice* support',
+  'supportive of',
+  'support of',
+  'support for',
+  'urge* you to adopt*',
+  'urge* you to finalize*',
+  'urge* the adoption',
+  'please finalize*',
+  'please adopt*',
+  'applaud*',
+  'commend*',
   'a step in the right direction',
 ];
 
 export const OPPOSE_PHRASES: readonly string[] = [
-  'strongly oppose',
-  'i oppose',
-  'we oppose',
-  'oppose this rule',
-  'oppose the proposed',
-  'oppose this proposal',
-  'do not support',
-  'does not support',
-  'object to',
-  'we object',
-  'i object',
-  'withdraw this rule',
-  'withdraw the proposed',
-  'rescind',
-  'urge you to reject',
-  'urge you to withdraw',
-  'reject this',
+  'strongly oppose*',
+  'i oppose*',
+  'we oppose*',
+  'oppose* this rule',
+  'oppose* the proposed',
+  'oppose* this proposal',
+  'do not support*',
+  'does not support*',
+  'object* to',
+  'we object*',
+  'i object*',
+  'voice* opposition',
+  'express* opposition',
+  'opposition to',
+  'opposed to',
+  'withdraw* this rule',
+  'withdraw* the proposed',
+  'rescind*',
+  'urge* you to reject*',
+  'urge* you to withdraw*',
+  'reject* this',
   'against this rule',
-  'do not finalize',
-  'should not be adopted',
+  'do not finalize*',
+  'should not be adopt*',
 ];
 
-/** Count non-overlapping occurrences of `needle` in `haystack`. */
-function countOccurrences(haystack: string, needle: string): number {
-  if (!needle) return 0;
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Compile one cue word to a regex fragment. A trailing `*` widens the word to
+ * its inflectional forms; a final `e` is dropped so the suffix set reads
+ * cleanly (oppose -> oppos + e/es/ed/ing). Plain words match literally.
+ */
+function wordPattern(word: string): string {
+  if (!word.endsWith('*')) return escapeRegExp(word);
+  const stem = word.slice(0, -1);
+  return stem.endsWith('e')
+    ? `${escapeRegExp(stem.slice(0, -1))}(?:e|es|ed|ing)`
+    : `${escapeRegExp(stem)}(?:s|es|ed|ing)?`;
+}
+
+/** Compile a cue phrase to a whole-word, inflection-tolerant matcher. */
+function phraseToRegex(phrase: string): RegExp {
+  const body = phrase.split(' ').map(wordPattern).join('\\s+');
+  return new RegExp(`\\b${body}\\b`, 'g');
+}
+
+const SUPPORT_RES: readonly RegExp[] = SUPPORT_PHRASES.map(phraseToRegex);
+const OPPOSE_RES: readonly RegExp[] = OPPOSE_PHRASES.map(phraseToRegex);
+
+/** Count non-overlapping matches of a precompiled (global) regex in `text`. */
+function countMatches(text: string, re: RegExp): number {
+  re.lastIndex = 0;
   let count = 0;
-  let idx = haystack.indexOf(needle);
-  while (idx !== -1) {
-    count++;
-    idx = haystack.indexOf(needle, idx + needle.length);
-  }
+  while (re.exec(text) !== null) count++;
   return count;
 }
 
@@ -93,8 +130,8 @@ export function scoreStance(text: string): StanceResult {
   const t = (text || '').toLowerCase();
   let support = 0;
   let oppose = 0;
-  for (const p of SUPPORT_PHRASES) support += countOccurrences(t, p);
-  for (const p of OPPOSE_PHRASES) oppose += countOccurrences(t, p);
+  for (const re of SUPPORT_RES) support += countMatches(t, re);
+  for (const re of OPPOSE_RES) oppose += countMatches(t, re);
 
   let stance: Stance;
   if (support === 0 && oppose === 0) stance = 'unclear';

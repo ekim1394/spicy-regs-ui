@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
-import { Link2, ChevronDown, Loader2, FileText, Download } from 'lucide-react';
+import { useState, useCallback, useEffect, memo } from 'react';
+import { Virtuoso } from 'react-virtuoso';
+import { Link2, Loader2, FileText, Download } from 'lucide-react';
 import { timeAgo } from '@/lib/agencyMetadata';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
 import { stripQuotes, decodeHtml } from '@/lib/utils/fieldFormat';
@@ -67,7 +68,7 @@ interface CommentItemData {
   attachments: { name: string; url: string; format: string }[];
 }
 
-function CommentItem({ data }: { data: CommentItemData }) {
+const CommentItem = memo(function CommentItem({ data }: { data: CommentItemData }) {
   const [expanded, setExpanded] = useState(false);
 
   const authorName = data.organization
@@ -156,7 +157,7 @@ function CommentItem({ data }: { data: CommentItemData }) {
       </div>
     </div>
   );
-}
+});
 
 const PAGE_SIZE = 10;
 
@@ -230,35 +231,31 @@ export function ThreadedComments({ docketId, modifyDate }: ThreadedCommentsProps
         </p>
       )}
 
-      {comments.map((c, i) => (
-        <CommentItem key={`${c.commentId}-${i}`} data={c} />
-      ))}
-
-      {/* Load More */}
-      {hasMore && (
-        <button
-          onClick={() => loadComments(false)}
-          disabled={loading}
-          className="w-full mt-2 py-2 text-sm font-medium text-[var(--accent-primary)] hover:bg-[var(--surface-elevated)] rounded-lg transition-colors flex items-center justify-center gap-2"
-        >
-          {loading ? (
-            <>
-              <Loader2 size={14} className="animate-spin" />
-              Loading...
-            </>
-          ) : (
-            <>
-              <ChevronDown size={14} />
-              Load more comments
-            </>
-          )}
-        </button>
-      )}
-
       {loading && comments.length === 0 && (
         <div className="flex justify-center py-6">
           <Loader2 size={20} className="animate-spin text-[var(--accent-primary)]" />
         </div>
+      )}
+
+      {/* Virtualized so a high-volume docket keeps only the visible comments in
+          the DOM. Window-scrolled (the page scrolls, not an inner box) and
+          paginates by fetching the next page when the list end is reached. */}
+      {comments.length > 0 && (
+        <Virtuoso
+          useWindowScroll
+          data={comments}
+          computeItemKey={(index, c) => `${c.commentId}-${index}`}
+          endReached={() => { if (hasMore && !loading) loadComments(false); }}
+          itemContent={(_index, c) => <CommentItem data={c} />}
+          components={{
+            Footer: () =>
+              loading ? (
+                <div className="flex justify-center py-6">
+                  <Loader2 size={20} className="animate-spin text-[var(--accent-primary)]" />
+                </div>
+              ) : null,
+          }}
+        />
       )}
     </div>
   );

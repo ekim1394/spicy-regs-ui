@@ -2,12 +2,15 @@
 
 import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
+import { DocketSummary } from '@/components/docket/DocketSummary';
 
 export interface DocketHeaderProps {
   agencyCode: string;
   docketId: string;
   title: string;
   docketType?: string;
+  /** Docket abstract, rendered (clamped, with a Read more toggle) below the title. */
+  abstract?: string;
 }
 
 /**
@@ -26,6 +29,7 @@ export function DocketHeader({
   docketId,
   title,
   docketType,
+  abstract,
 }: DocketHeaderProps) {
   return (
     <Card variant="gradient" interactive={false} className="p-5">
@@ -50,6 +54,13 @@ export function DocketHeader({
       <h1 className="font-serif text-xl text-[var(--foreground)] leading-snug">
         {title}
       </h1>
+
+      {/* Abstract lives in the same panel as the title, split off by a divider. */}
+      {abstract && (
+        <div className="mt-4 pt-4 border-t border-[var(--border)]">
+          <DocketSummary key={docketId} abstract={abstract} />
+        </div>
+      )}
     </Card>
   );
 }

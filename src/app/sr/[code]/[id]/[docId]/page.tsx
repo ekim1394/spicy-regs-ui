@@ -57,7 +57,7 @@ export default function DocumentPage() {
 
   if (!doc) {
     return (
-      <PageShell maxWidth="3xl" mainClassName="max-w-3xl mx-auto px-4 py-16 text-center">
+      <PageShell maxWidth="4xl" mainClassName="w-full max-w-4xl mx-auto px-4 py-16 text-center">
         <h1 className="text-2xl font-bold mb-2">Document not found</h1>
         <p className="text-[var(--muted)] mb-4 font-mono-id">{docId}</p>
         <Link href={`/sr/${agencyCode}/${encodeURIComponent(docketIdParam)}`} className="text-[var(--accent-primary)] hover:underline">
@@ -72,7 +72,7 @@ export default function DocumentPage() {
   const documentType = stripQuotes(doc.document_type);
 
   return (
-    <PageShell maxWidth="2xl" mainClassName="max-w-2xl mx-auto px-4 py-8">
+    <PageShell maxWidth="4xl" mainClassName="w-full max-w-4xl mx-auto px-4 py-8">
       {/* Breadcrumb */}
       <nav className="text-xs text-[var(--muted)] mb-5">
         <Link href="/feed" className="hover:text-[var(--foreground)]">Feed</Link>

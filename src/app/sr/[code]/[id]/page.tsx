@@ -16,7 +16,7 @@ import { RelatedDockets } from '@/components/feed/RelatedDockets';
 import { RelatedFederalRegister } from '@/components/feed/RelatedFederalRegister';
 import { AgencyIdentity } from '@/components/agency/AgencyIdentity';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ExternalLink } from 'lucide-react';
 import { stripQuotes } from '@/lib/utils/fieldFormat';
 import { usePageTitle } from '@/lib/hooks/usePageTitle';
 
@@ -138,7 +138,7 @@ function DocketDetailInner() {
 
   if (!docket) {
     return (
-      <PageShell maxWidth="3xl" mainClassName="max-w-3xl mx-auto px-4 py-16 text-center">
+      <PageShell maxWidth="4xl" mainClassName="w-full max-w-4xl mx-auto px-4 py-16 text-center">
         <h1 className="text-2xl font-bold mb-2">Docket not found</h1>
         <p className="text-[var(--muted)] mb-4">{docketId}</p>
         <Link href={`/sr/${agencyCode}`} className="text-[var(--accent-primary)] hover:underline">
@@ -153,7 +153,7 @@ function DocketDetailInner() {
   const docketType = stripQuotes(docket.docket_type);
 
   return (
-    <PageShell maxWidth="5xl">
+    <PageShell maxWidth="4xl">
       {/* Breadcrumb */}
       <nav className="text-xs text-[var(--muted)] mb-4">
         <Link href="/feed" className="hover:text-[var(--foreground)]">Feed</Link>
@@ -171,6 +171,7 @@ function DocketDetailInner() {
             docketId={docketId}
             title={title}
             docketType={docketType}
+            abstract={abstract || undefined}
           />
 
           <Tabs value={tab} onValueChange={(v) => setTab(v as DocketTab)}>
@@ -182,15 +183,6 @@ function DocketDetailInner() {
 
             {/* Overview */}
             <TabsContent value="overview" className="pt-5 flex flex-col gap-6">
-              {abstract && (
-                <section>
-                  <SectionLabel label="Summary" className="mb-2" />
-                  <Card interactive={false} className="p-4">
-                    <p className="text-sm text-[var(--foreground)] leading-relaxed">{abstract}</p>
-                  </Card>
-                </section>
-              )}
-
               <section>
                 <SectionLabel label="Timeline" className="mb-2" />
                 <Card interactive={false} className="p-4">
@@ -204,15 +196,6 @@ function DocketDetailInner() {
 
               {commentCount !== 0 && (
                 <section>
-                  <SectionLabel
-                    label="Comment activity"
-                    caption={
-                      commentCount != null
-                        ? `${commentCount.toLocaleString()} ${commentCount === 1 ? 'comment' : 'comments'}`
-                        : undefined
-                    }
-                    className="mb-3"
-                  />
                   {aggregate === null ? (
                     <Card interactive={false} className="flex justify-center py-8">
                       <Loader2 size={20} className="animate-spin text-[var(--accent-primary)]" />
@@ -222,6 +205,26 @@ function DocketDetailInner() {
                   )}
                 </section>
               )}
+
+              {/* Canonical source link — lives here on the docket page rather than
+                  on every feed card. Only the destination is hyperlinked; the
+                  surrounding text is plain context. */}
+              <section>
+                <SectionLabel label="View on regulations.gov" className="mb-2" />
+                <p className="text-sm text-[var(--muted)]">
+                  View the full{' '}
+                  <a
+                    href={`https://www.regulations.gov/docket/${docketId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-[var(--accent-primary)] hover:underline"
+                  >
+                    &ldquo;{title}&rdquo;
+                    <ExternalLink size={13} className="ml-1 inline-block shrink-0 align-baseline" />
+                  </a>{' '}
+                  docket on regulations.gov
+                </p>
+              </section>
 
               <RelatedFederalRegister docketId={docketId} />
             </TabsContent>
