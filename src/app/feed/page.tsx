@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useCallback, useEffect, Suspense, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useLayoutEffect, Suspense, useMemo, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Virtuoso } from 'react-virtuoso';
 import { PageShell } from '@/components/ui/PageShell';
+import { Card } from '@/components/ui/Card';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { DocketPost } from '@/components/feed/DocketPost';
 import { FederalRegisterPost } from '@/components/feed/FederalRegisterPost';
@@ -69,6 +70,17 @@ function DocketFeed() {
   const reqRef = useRef(0);
   // Tracks whether a load is in flight without making `load` depend on `loading`.
   const inFlightRef = useRef(false);
+
+  // The feed is an inner-scrolling region (the rail + filters stay put while the
+  // river scrolls). Sizing it to a fixed 75vh leaves a gap above the footer once
+  // the discovery rail is hidden and the page is shorter than the viewport, so
+  // we measure the space from the region's top to the footer and grow into it —
+  // floored at 75vh so a present rail (or a short viewport) still scrolls.
+  const feedRef = useRef<HTMLDivElement>(null);
+  const [feedHeight, setFeedHeight] = useState<string>();
+  // True once the river has scrolled away from its top — drives the top scroll
+  // fade (the horizontal-axis sibling of the discovery rail's edge fades).
+  const [showTopFade, setShowTopFade] = useState(false);
 
   // Filters
   // Agency is URL-driven (no UI control): the agency profile's "View all
@@ -245,6 +257,26 @@ function DocketFeed() {
 
   const hasMore = docketHasMore || (interleaveFR && frHasMore);
 
+  // Grow the feed region to meet the footer. Re-measure on resize and whenever
+  // the rail toggles (filtersActive) or the first load resolves, since both move
+  // the region's top. When the rail is shown its top sits below the viewport, so
+  // the available space goes negative and the 75vh floor takes over — meaning we
+  // never need to track the rail's async height growth.
+  useLayoutEffect(() => {
+    const measure = () => {
+      const el = feedRef.current;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      const footerH = document.querySelector('footer')?.offsetHeight ?? 0;
+      const available = window.innerHeight - top - footerH;
+      const floor = window.innerHeight * 0.75;
+      setFeedHeight(`${Math.round(Math.max(floor, available))}px`);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [filtersActive, initialLoading]);
+
   return (
     <div>
       {/* Discovery rail — hides when a filter narrows the feed. */}
@@ -283,7 +315,7 @@ function DocketFeed() {
       </div>
 
       {/* Filter Bar — always visible */}
-      <div className="mb-6 p-4 bg-[var(--surface)] rounded-xl border border-[var(--border)]">
+      <Card interactive={false} className="mb-6 p-4">
         <FeedFilters
           selectedAgency={selectedAgency}
           onAgencyChange={() => {}}
@@ -298,27 +330,32 @@ function DocketFeed() {
           includeFR={includeFR}
           onIncludeFRChange={(next) => setIncludeFRState(next ? 'on' : 'off')}
         />
-      </div>
+      </Card>
 
-      {/* Feed */}
-      {initialLoading ? (
-        <div className="flex flex-col items-center justify-center py-24 gap-4">
-          <Loader2 size={32} className="animate-spin text-[var(--accent-primary)]" />
-          <p className="text-[var(--muted)] text-sm">Loading feed...</p>
-        </div>
-      ) : rows.length === 0 && !loading ? (
-        <div className="text-center py-16">
-          <p className="text-lg text-[var(--muted)]">No dockets found.</p>
-          <p className="text-sm text-[var(--muted-foreground)] mt-1">
-            Try adjusting your filters or search.
-          </p>
-        </div>
-      ) : (
-        <div style={{ height: '75vh' }}>
+      {/* Feed — `feedHeight` grows the scroll region to fill the space down to
+          the footer (no gap) when the discovery rail is hidden, while a 75vh
+          floor keeps the virtual list usable when the rail pushes it down or on
+          short viewports. A definite px height is also what Virtuoso needs for
+          its `height: 100%` scroller to resolve. */}
+      <div ref={feedRef} className="relative" style={{ height: feedHeight ?? '75vh' }}>
+        {initialLoading ? (
+          <div className="h-full flex flex-col items-center justify-center gap-4">
+            <Loader2 size={32} className="animate-spin text-[var(--accent-primary)]" />
+            <p className="text-[var(--muted)] text-sm">Loading feed...</p>
+          </div>
+        ) : rows.length === 0 && !loading ? (
+          <div className="h-full flex flex-col items-center justify-center text-center">
+            <p className="text-lg text-[var(--muted)]">No dockets found.</p>
+            <p className="text-sm text-[var(--muted-foreground)] mt-1">
+              Try adjusting your filters or search.
+            </p>
+          </div>
+        ) : (
           <Virtuoso
             style={{ height: '100%' }}
             data={rows}
             endReached={() => { if (hasMore && !loading) load(false); }}
+            onScroll={(e) => setShowTopFade((e.target as HTMLElement).scrollTop > 1)}
             overscan={400}
             itemContent={(_index, row) => (
               <div className="pb-3">
@@ -349,15 +386,27 @@ function DocketFeed() {
                 ) : null,
             }}
           />
-        </div>
-      )}
+        )}
+
+        {/* Top scroll fade — the discovery rail's edge fade rotated onto the
+            horizontal axis: the river dissolves into the background as it
+            scrolls up under the filter bar, instead of cutting off hard. Only
+            shown once scrolled away from the top, so the cue is present only
+            when there's actually hidden content above. */}
+        <div
+          aria-hidden
+          className={`pointer-events-none absolute inset-x-0 top-0 h-8 bg-gradient-to-b from-[var(--background)] to-transparent transition-opacity duration-200 ${
+            showTopFade ? 'opacity-100' : 'opacity-0'
+          }`}
+        />
+      </div>
     </div>
   );
 }
 
 export default function DashboardPage() {
   return (
-    <PageShell maxWidth="3xl">
+    <PageShell maxWidth="4xl">
       <Suspense
         fallback={
           <div className="flex justify-center py-12">

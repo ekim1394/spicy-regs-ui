@@ -3,7 +3,6 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import {
-  ExternalLink,
   MessageSquare,
   FileText,
   Paperclip,
@@ -64,8 +63,6 @@ export function DocketPost({
     return [{ name: fileName, url: fileUrl, type: ext }];
   }, [item]);
 
-  const regsDotGovUrl = `https://www.regulations.gov/docket/${docketId}`;
-
   return (
     <Card asChild variant="post">
       <article>
@@ -109,24 +106,6 @@ export function DocketPost({
             >
               {title}
             </Link>
-
-            {/* Time-sensitive status — its own line so the "act now" signal
-                doesn't compete with the categorical metadata above. */}
-            {(isOpenForComment || isRecentlyClosed) && (
-              <div className="flex items-center gap-2 mt-1.5">
-                {isOpenForComment && commentEndDate && (
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="text-xs font-medium text-[var(--muted)]">Open for Comment ·</span>
-                    <StatusTag commentEndDate={commentEndDate} />
-                  </span>
-                )}
-                {!isOpenForComment && isRecentlyClosed && daysSinceClosed !== null && (
-                  <Badge dot>
-                    Recently Closed · {daysSinceClosed === 0 ? 'today' : `${daysSinceClosed}d ago`}
-                  </Badge>
-                )}
-              </div>
-            )}
           </div>
         </div>
 
@@ -171,14 +150,17 @@ export function DocketPost({
           </div>
         )}
 
-        {/* Action Bar — single canonical comment indicator (count baked into
-            the link), docs as muted inline context, regulations.gov trailing. */}
-        <div className="flex items-center gap-3 mt-3 pt-3 border-t border-[var(--border)]">
+        {/* Footer — engagement on the left (icon sits flush with the title and
+            abstract above it), current lifecycle state on the right. All the
+            identity metadata lives in the single line at the top, so this row
+            carries only state + engagement: no second metadata block wedged
+            against the title. */}
+        <div className="flex items-center gap-3 mt-4 pt-3 border-t border-[var(--border)]">
           <Link
             href={`/sr/${agencyCode}/${encodeURIComponent(docketId)}`}
-            className="action-btn"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--muted)] hover:text-[var(--accent-primary)] transition-colors"
           >
-            <MessageSquare size={16} />
+            <MessageSquare size={15} />
             {commentCount > 0 ? `${formatCount(commentCount)} comments` : 'Comments'}
           </Link>
 
@@ -189,15 +171,18 @@ export function DocketPost({
             </span>
           )}
 
-          <a
-            href={regsDotGovUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="action-btn ml-auto"
-          >
-            <ExternalLink size={14} />
-            regulations.gov
-          </a>
+          {isOpenForComment && commentEndDate ? (
+            <span className="ml-auto inline-flex items-center gap-1.5">
+              <span className="text-xs font-medium text-[var(--muted)]">Open for Comment ·</span>
+              <StatusTag commentEndDate={commentEndDate} />
+            </span>
+          ) : isRecentlyClosed && daysSinceClosed !== null ? (
+            <span className="ml-auto">
+              <Badge dot>
+                Recently Closed · {daysSinceClosed === 0 ? 'today' : `${daysSinceClosed}d ago`}
+              </Badge>
+            </span>
+          ) : null}
         </div>
       </div>
       </article>

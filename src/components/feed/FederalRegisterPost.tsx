@@ -32,7 +32,7 @@ interface FederalRegisterPostProps {
  */
 export function FederalRegisterPost({ doc, dashed = false }: FederalRegisterPostProps) {
   const agencies = doc.agencySlugs
-    ? doc.agencySlugs.split(',').map((s) => s.trim()).filter(Boolean)
+    ? Array.from(new Set(doc.agencySlugs.split(',').map((s) => s.trim()).filter(Boolean)))
     : [];
 
   const publishedDisplay = doc.publicationDate

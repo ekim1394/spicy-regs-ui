@@ -6,6 +6,8 @@ import { Virtuoso } from 'react-virtuoso';
 import { Loader2 } from 'lucide-react';
 
 import { PageShell } from '@/components/ui/PageShell';
+import { Card } from '@/components/ui/Card';
+import { DemoPill } from '@/components/ui/DemoPill';
 import { FederalRegisterPost } from '@/components/feed/FederalRegisterPost';
 import { FRFeedFilters } from '@/components/feed/FRFeedFilters';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
@@ -101,13 +103,10 @@ function FederalRegisterFeed() {
       <div className="mb-4">
         <div className="flex items-center gap-2 mb-1">
           <h1 className="text-xl font-bold">Federal Register</h1>
-          <span
-            className="inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium uppercase tracking-wider"
-            style={{ background: 'rgba(217,119,6,0.12)', color: 'var(--accent-amber)', border: '1px solid rgba(217,119,6,0.25)' }}
-            title="Federal Register entries are now folded into the main feed via the 'include Federal Register' toggle. This standalone page is kept for now and slated for removal."
-          >
-            deprecated
-          </span>
+          <DemoPill
+            label="deprecated"
+            reason="Federal Register entries are now folded into the main feed via the 'include Federal Register' toggle. This standalone page is kept for now and slated for removal."
+          />
         </div>
         <p className="text-sm text-[var(--muted)]">
           Rules, proposed rules, notices, and presidential documents published in the
@@ -117,7 +116,7 @@ function FederalRegisterFeed() {
         </p>
       </div>
 
-      <div className="mb-6 p-4 bg-[var(--surface)] rounded-xl border border-[var(--border)]">
+      <Card interactive={false} className="mb-6 p-4">
         <FRFeedFilters
           documentType={documentType}
           onDocumentTypeChange={setDocumentType}
@@ -128,7 +127,7 @@ function FederalRegisterFeed() {
           agencySlug={agencySlug}
           onAgencySlugChange={setAgencySlug}
         />
-      </div>
+      </Card>
 
       {initialLoading ? (
         <div className="flex flex-col items-center justify-center py-24 gap-4">
@@ -177,7 +176,7 @@ function FederalRegisterFeed() {
 
 export default function FederalRegisterPage() {
   return (
-    <PageShell maxWidth="3xl">
+    <PageShell maxWidth="4xl">
       <Suspense
         fallback={
           <div className="flex justify-center py-12">

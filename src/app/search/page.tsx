@@ -2,8 +2,12 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Loader2 } from "lucide-react";
 
 import { PageShell } from "@/components/ui/PageShell";
+import { FilterSelect } from "@/components/ui/FilterSelect";
+import { Button } from "@/components/ui/Button";
+import { SectionLabel } from "@/components/ui/SectionLabel";
 import { SearchInput } from "@/components/SearchInput";
 import {
   SearchResultCard,
@@ -66,19 +70,24 @@ function SearchBody() {
     }
     setFrSearching(true);
     let cancelled = false;
-    searchFederalRegister(query, 10, 0, agency || undefined)
-      .then((rows) => {
-        if (!cancelled) setFrResults(rows);
-      })
-      .catch((err) => {
-        console.error('FR search failed:', err);
-        if (!cancelled) setFrResults([]);
-      })
-      .finally(() => {
-        if (!cancelled) setFrSearching(false);
-      });
+    // Debounce: each call full-scans the ~793K-row FR parquet, so don't fire
+    // one per keystroke as the query param updates while the user types.
+    const debounce = setTimeout(() => {
+      searchFederalRegister(query, 10, 0, agency || undefined)
+        .then((rows) => {
+          if (!cancelled) setFrResults(rows);
+        })
+        .catch((err) => {
+          console.error('FR search failed:', err);
+          if (!cancelled) setFrResults([]);
+        })
+        .finally(() => {
+          if (!cancelled) setFrSearching(false);
+        });
+    }, 300);
     return () => {
       cancelled = true;
+      clearTimeout(debounce);
     };
   }, [query, agency, duckdbReady, searchFederalRegister]);
 
@@ -162,23 +171,22 @@ function SearchBody() {
           {agency && (
             <button
               onClick={clearAgency}
-              className="px-2 py-1 rounded-full border border-[var(--accent-primary)]/40 bg-[var(--accent-primary)]/10 text-[var(--accent-primary)] hover:bg-[var(--accent-primary)]/20 transition-colors"
+              className="filter-chip filter-chip-active"
               title="Clear agency filter"
             >
               Agency: {agency} ✕
             </button>
           )}
-          <label className="flex items-center gap-1.5 text-[var(--muted)]">
-            Sort
-            <select
-              value={sortParam}
-              onChange={(e) => setSort(e.target.value as SearchSort)}
-              className="bg-[var(--background)] border border-[var(--border)] rounded-md px-2 py-1 text-[var(--foreground)] focus:outline-none focus:border-[var(--accent-primary)]"
-            >
-              <option value="relevance">Most relevant</option>
-              <option value="recency">Most recently updated</option>
-            </select>
-          </label>
+          <FilterSelect
+            value={sortParam}
+            onValueChange={(v) => setSort(v as SearchSort)}
+            prefix="Sort"
+            ariaLabel="Sort results"
+            options={[
+              { value: "relevance", label: "Most relevant" },
+              { value: "recency", label: "Most recently updated" },
+            ]}
+          />
         </div>
       </div>
 
@@ -204,9 +212,7 @@ function SearchBody() {
 
       {results.length > 0 && (
         <>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)] pt-2">
-            Dockets
-          </h3>
+          <SectionLabel label="Dockets" className="pt-2" />
           <div className="space-y-3">
             {results.map((r) => (
               <SearchResultCard key={r.docket.docketId} result={r} />
@@ -218,12 +224,13 @@ function SearchBody() {
               Showing {results.length.toLocaleString()} of {total.toLocaleString()}
             </span>
             {hasMore && (
-              <button
+              <Button
+                variant="secondary"
                 onClick={() => setPageCount((n) => n + 1)}
-                className="text-xs px-3 py-1.5 rounded-full border border-[var(--border)] text-[var(--foreground)] hover:border-[var(--accent-primary)]/50 hover:text-[var(--accent-primary)] transition-colors"
+                className="text-xs"
               >
                 Load more
-              </button>
+              </Button>
             )}
           </div>
         </>
@@ -232,15 +239,22 @@ function SearchBody() {
       {/* Federal Register section — fail-soft if no matches or DuckDB not ready */}
       {(frResults.length > 0 || frSearching) && (
         <section className="pt-4">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)] mb-2 flex items-center gap-2">
-            Federal Register
-            {frSearching && <Loader2Icon />}
-            {!frSearching && frResults.length > 0 && (
-              <span className="font-normal normal-case text-[var(--muted)]">
-                · {frResults.length} {frResults.length === 1 ? 'match' : 'matches'}
+          <SectionLabel
+            className="mb-2"
+            label={
+              <span className="inline-flex items-center gap-2">
+                Federal Register
+                {frSearching && (
+                  <Loader2 size={14} className="animate-spin text-[var(--accent-primary)]" />
+                )}
               </span>
-            )}
-          </h3>
+            }
+            caption={
+              !frSearching && frResults.length > 0
+                ? `${frResults.length} ${frResults.length === 1 ? 'match' : 'matches'}`
+                : undefined
+            }
+          />
           <div className="space-y-3">
             {frResults.map((d) => (
               <FederalRegisterPost key={d.documentNumber} doc={d} />
@@ -252,21 +266,9 @@ function SearchBody() {
   );
 }
 
-function Loader2Icon() {
-  return (
-    <span
-      aria-hidden
-      className="inline-block w-3 h-3 border-2 border-[var(--accent-primary)] border-t-transparent rounded-full animate-spin"
-    />
-  );
-}
-
 export default function SearchPage() {
   return (
-    <PageShell
-      maxWidth="4xl"
-      mainClassName="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6"
-    >
+    <PageShell maxWidth="4xl">
       <Suspense fallback={<SkeletonList />}>
         <SearchBody />
       </Suspense>
