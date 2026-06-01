@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils/cn';
  * Generic card surface. `variant` selects the corner radius:
  *
  * - `default` — the plain `.card` (1.5px border, 12px radius, accent border
- *   + soft indigo shadow on hover).
+ *   + soft prussian shadow on hover).
  * - `gradient` / `post` — `.card .card-lg`, the same card bumped to a 16px
  *   radius for feed posts, identity cards, feature tiles, and Lab panels.
  *   The two names are interchangeable aliases for the large radius.
@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils/cn';
  * libraries.
  *
  * `interactive` (default `true`) selects the hover behaviour: the standard
- * `.card` lifts its border to the accent + a soft indigo shadow on hover —
+ * `.card` lifts its border to the accent + a soft prussian shadow on hover —
  * right for clickable surfaces (feed posts, mini cards). Set `false` for
  * static content panels (summaries, timelines, the docket header, table
  * shells) so they get the same border/radius chrome WITHOUT an accent-border

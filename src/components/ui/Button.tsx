@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils/cn';
 /**
  * The two button treatments:
  *
- * - `primary` — filled electric-indigo CTA (`.btn-primary`). The single
+ * - `primary` — filled prussian-blue CTA (`.btn-primary`). The single
  *   high-emphasis action: "View all dockets", "Browse the feed".
  * - `secondary` — bordered, neutral-fill companion (`.btn-secondary`) whose
  *   border lifts to the accent on hover, the same gesture as `.card`. For the

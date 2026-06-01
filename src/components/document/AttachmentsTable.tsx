@@ -25,7 +25,7 @@ export function AttachmentsTable({ attachments }: { attachments: Attachment[] })
   return (
     <div>
       <div
-        className="grid items-center pb-2 text-[10px] font-bold uppercase tracking-[0.05em] text-[var(--muted)]"
+        className="grid items-center pb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]"
         style={{ gridTemplateColumns: '2.5fr 1fr 0.6fr' }}
       >
         <div>File</div>

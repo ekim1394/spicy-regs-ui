@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { scaleLinear } from '@visx/scale';
 import { LinePath } from '@visx/shape';
 
@@ -24,7 +24,7 @@ export interface SparklineProps {
  * Minimal Visx line sparkline. Renders a flat baseline for empty/degenerate
  * series so it never throws.
  */
-export function Sparkline({
+export const Sparkline = memo(function Sparkline({
   data,
   width = 90,
   height = 20,
@@ -67,4 +67,4 @@ export function Sparkline({
       />
     </svg>
   );
-}
+});

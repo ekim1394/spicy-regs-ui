@@ -82,7 +82,16 @@ export function FilterSelect<T extends string = string>({
         className={`filter-chip appearance-none cursor-pointer flex items-center gap-1.5 ${className}`}
       >
         {prefix && <span className="text-[var(--muted)]">{prefix}</span>}
-        <Select.Value placeholder={placeholder}>{trigger ?? undefined}</Select.Value>
+        {/* When an option supplies a compact triggerLabel, render it as the
+            Value's children. Otherwise render a bare <Select.Value /> with NO
+            children prop: Radix portals the selected item's text into this
+            node, and React 19 rejects a createPortal container that also has
+            React-managed children — even `children={undefined}` counts. */}
+        {trigger != null ? (
+          <Select.Value placeholder={placeholder}>{trigger}</Select.Value>
+        ) : (
+          <Select.Value placeholder={placeholder} />
+        )}
         {/* Caret flows inline (not absolute): .filter-chip is unlayered CSS and
             its padding beats Tailwind's layered pr-* utility, so an absolute
             caret + pr-7 overlapped the text. Inline + gap keeps it clear. */}
@@ -95,7 +104,7 @@ export function FilterSelect<T extends string = string>({
         <Select.Content
           position="popper"
           sideOffset={4}
-          className="z-50 min-w-[var(--radix-select-trigger-width)] rounded-xl border border-[var(--border)] bg-[var(--surface)] shadow-lg overflow-hidden"
+          className="popover-surface z-50 min-w-[var(--radix-select-trigger-width)]"
         >
           <Select.Viewport className="p-1">
             {options.map((opt) => {

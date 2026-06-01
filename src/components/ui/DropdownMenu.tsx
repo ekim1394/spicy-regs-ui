@@ -25,8 +25,9 @@ export const DropdownMenu = RadixDropdown.Root;
 export const DropdownMenuTrigger = RadixDropdown.Trigger;
 
 /**
- * Styled content surface. Matches the popover chrome of the current
- * ExportButton menu (rounded, border, surface-elevated, shadow).
+ * Styled content surface. Uses the shared `.popover-surface` chrome (surface
+ * bg, subtle border, 12px radius, prussian pop shadow) so it matches every
+ * other floating menu in the app.
  */
 export const DropdownMenuContent = React.forwardRef<
   React.ElementRef<typeof RadixDropdown.Content>,
@@ -37,7 +38,7 @@ export const DropdownMenuContent = React.forwardRef<
       <RadixDropdown.Content
         ref={ref}
         sideOffset={sideOffset}
-        className={`z-50 min-w-[12rem] rounded-lg border border-[var(--border)] bg-[var(--surface-elevated)] shadow-lg overflow-hidden p-1 ${className}`}
+        className={`popover-surface z-50 min-w-[12rem] p-1 ${className}`}
         {...rest}
       />
     </RadixDropdown.Portal>

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Card } from '@/components/ui/Card';
 
 /** A capability tile for feature grids on content pages. */
 export function Feature({
@@ -11,7 +12,7 @@ export function Feature({
   description?: string;
 }) {
   return (
-    <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4">
+    <Card interactive={false} className="p-4">
       {icon && (
         <div
           className="inline-flex items-center justify-center w-8 h-8 rounded-lg mb-2.5"
@@ -24,6 +25,6 @@ export function Feature({
       {description && (
         <p className="text-xs text-[var(--muted)] leading-relaxed">{description}</p>
       )}
-    </div>
+    </Card>
   );
 }

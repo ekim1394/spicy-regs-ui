@@ -1,5 +1,21 @@
 @import "tailwindcss";
 
+/* ─── Radius scale ─── the single source of truth for BOTH the Tailwind radius
+   utilities (rounded-xs/sm/md/lg) and the component CSS below (var(--radius-md)).
+   Declared in @theme — not :root — so Tailwind GENERATES the utilities from these
+   exact values instead of its stock scale: `rounded-md` is provably 12px, by
+   design, not a coincidence of the cascade. `--radius-*: initial` clears
+   Tailwind's defaults so ONLY this ladder exists — no stray rounded-xl/2xl that
+   silently alias `rounded-md`. (`rounded-full` is a static utility and is
+   unaffected.) Pills/avatars use `rounded-full` directly. */
+@theme {
+  --radius-*: initial;
+  --radius-xs: 6px;    /* badges, small pills           */
+  --radius-sm: 10px;   /* buttons, attachments          */
+  --radius-md: 12px;   /* default .card, popover-surface */
+  --radius-lg: 16px;   /* posts, feature tiles, banners  */
+}
+
 /* Hide scrollbars but keep scrolling */
 * {
   scrollbar-width: none; /* Firefox */
@@ -8,50 +24,59 @@
   display: none; /* Chrome, Safari, Edge */
 }
 
-/* ─── OpenPolicy-Inspired Design Tokens ─── */
+/* ─── Prussian-Blue Design Tokens ─── */
 :root {
-  --background: #eef0ff;
-  --foreground: #1a1a2e;
-  --accent-primary: #3B28F6;      /* electric indigo — THE brand color */
-  --accent-primary-soft: rgba(59, 40, 246, 0.15);
-  --accent-secondary: #5b4cf7;    /* primary HOVER step only (not a brand color) */
+  --background: oklch(0.975 0.007 250);     /* cool prussian paper */
+  --foreground: oklch(0.21 0.030 256);      /* deep navy-blue ink */
+  --accent-primary: oklch(0.45 0.125 254);  /* prussian blue — THE brand color (≈ #185598) */
+  --accent-primary-soft: color-mix(in srgb, var(--accent-primary) 14%, transparent);
+  --accent-secondary: oklch(0.52 0.120 254); /* primary HOVER step only (not a brand color) */
   /* The true secondary: a warm "spice" clay echoing the flame mark. Emphasis
      ONLY — a callout rule, a single key number — never a fill competing with
      the primary. */
   --accent-emphasis: #d8653b;
   --accent-emphasis-soft: rgba(216, 101, 59, 0.15);
   /* Semantics — muted (oklch, chroma ×0.7) so they read as quiet accents
-     against the periwinkle field, never as fills. */
+     against the cool prussian field, never as fills. */
   --accent-green: oklch(0.58 0.074 150);  /* "open" / positive            */
   --accent-amber: oklch(0.66 0.067 68);   /* "demo" / experimental — clay */
   --accent-red: oklch(0.56 0.098 27);     /* urgency / error              */
   --surface: #ffffff;
-  --surface-elevated: #f4f5ff;
-  --surface-raised: #e5e7f5;
-  --border: #c7caef;
-  --border-subtle: #dde0f5;
-  --muted: #6b7094;
-  --muted-foreground: #8b90b3;
+  --surface-elevated: oklch(0.97 0.008 250);   /* prussian-toned */
+  --surface-raised: oklch(0.925 0.012 250);    /* prussian-toned */
+  --border: oklch(0.885 0.013 250);        /* prussian-toned */
+  --border-subtle: oklch(0.93 0.009 250);  /* prussian-toned */
+  --muted: oklch(0.50 0.025 256);          /* prussian-toned */
+  --muted-foreground: oklch(0.63 0.024 256); /* prussian-toned */
 
-  /* Agency Color System — a harmonised oklch family: lightness held in a
-     tight 0.50–0.64 band, chroma clamped low (≈0.05–0.09, ×0.7), only the
-     HUE rotates — so a dozen colors read as one designed set, in key with
-     the indigo. Old crayon-box hexes kept in comments. */
-  --agency-epa:  oklch(0.57 0.070 155);  /* green     (was #16a34a) */
-  --agency-fda:  oklch(0.55 0.081 250);  /* blue      (was #2563eb) */
-  --agency-fcc:  oklch(0.56 0.084 298);  /* violet    (was #7c3aed) */
-  --agency-dot:  oklch(0.62 0.067 58);   /* clay      (was #ea580c) */
-  --agency-sec:  oklch(0.52 0.081 256);  /* deep blue (was #1d4ed8) */
-  --agency-usda: oklch(0.58 0.049 82);   /* olive     (was #a16207) */
-  --agency-doe:  oklch(0.64 0.060 92);   /* muted gold(was #ca8a04) */
-  --agency-hhs:  oklch(0.57 0.091 25);   /* red       (was #dc2626) */
-  --agency-dhs:  oklch(0.58 0.067 228);  /* sky       (was #0284c7) */
-  --agency-doj:  oklch(0.50 0.088 23);   /* deep red  (was #b91c1c) */
-  --agency-dod:  oklch(0.52 0.020 265);  /* slate     (was #475569) */
-  --agency-hud:  oklch(0.58 0.056 205);  /* teal      (was #0891b2) */
-  --agency-ed:   oklch(0.56 0.084 300);  /* violet    (was #7c3aed) */
-  --agency-noaa: oklch(0.52 0.070 238);  /* deep sky  (was #0369a1) */
-  --agency-default: #3B28F6;
+  /* Agency Color System — a harmonised oklch family re-keyed to the prussian
+     blue: lightness held in a tight 0.46–0.60 band, chroma clamped low
+     (≈0.05–0.08), only the HUE rotates — biased toward the blue half so a
+     dozen colors read as one designed set, in key with the prussian. The two
+     former violets (FCC/ED) pull in toward blue-violet so nothing reads as
+     the old "AI purple". */
+  --agency-epa:  oklch(0.54 0.060 160);  /* green       */
+  --agency-fda:  oklch(0.50 0.072 250);  /* blue        */
+  --agency-fcc:  oklch(0.52 0.066 282);  /* blue-violet */
+  --agency-dot:  oklch(0.58 0.062 54);   /* clay        */
+  --agency-sec:  oklch(0.46 0.075 254);  /* deep blue   */
+  --agency-usda: oklch(0.56 0.050 84);   /* olive       */
+  --agency-doe:  oklch(0.60 0.052 88);   /* muted gold  */
+  --agency-hhs:  oklch(0.53 0.078 27);   /* red         */
+  --agency-dhs:  oklch(0.54 0.062 232);  /* sky         */
+  --agency-doj:  oklch(0.47 0.075 25);   /* deep red    */
+  --agency-dod:  oklch(0.50 0.022 258);  /* slate       */
+  --agency-hud:  oklch(0.55 0.052 208);  /* teal        */
+  --agency-ed:   oklch(0.53 0.064 284);  /* blue-violet */
+  --agency-noaa: oklch(0.49 0.066 240);  /* deep sky    */
+  --agency-default: var(--accent-primary);
+
+  /* Partisan signifiers, kept deliberately outside the prussian brand family:
+     a stock political blue and red used only to shade administration eras in
+     the Lab activity charts. Space-separated RGB channels so call sites set
+     their own alpha. Excluded from any indigo literal sweep. */
+  --party-dem: 37 99 235;
+  --party-gop: 220 38 38;
 
   /* Typography — primary families are set by next/font on <html>
      (see src/app/layout.tsx); these tokens add the fallback stack. */
@@ -72,17 +97,10 @@
   --text-micro: 0.6875rem; /* 11px — uppercase eyebrows       */
   --text-nano: 0.625rem;   /* 10px — badge text, initials     */
 
-  /* Radii ladder */
-  --radius-pill: 9999px;   /* chips, avatars, search          */
-  --radius-lg: 16px;       /* posts, feature cards, banners   */
-  --radius-md: 12px;       /* default .card                   */
-  --radius-sm: 10px;       /* buttons, attachments            */
-  --radius-xs: 6px;        /* badges, small pills             */
-
-  /* Elevation — scarce, always indigo-tinted, interaction only */
-  --shadow-pop: 0 4px 20px rgba(59, 40, 246, 0.10);   /* popover / hovered post */
-  --shadow-btn: 0 4px 12px rgba(59, 40, 246, 0.25);   /* primary button hover   */
-  --shadow-glow: 0 0 40px rgba(59, 40, 246, 0.08);    /* ambient hero glow      */
+  /* Elevation — scarce, always prussian-tinted, interaction only */
+  --shadow-pop: 0 4px 20px color-mix(in srgb, var(--accent-primary) 13%, transparent);   /* popover / hovered post */
+  --shadow-btn: 0 4px 12px color-mix(in srgb, var(--accent-primary) 28%, transparent);   /* primary button hover   */
+  --shadow-glow: 0 0 40px color-mix(in srgb, var(--accent-primary) 9%, transparent);     /* ambient hero glow      */
 }
 
 body {
@@ -129,10 +147,11 @@ h3 {
   font-family: var(--font-heading);
 }
 
-/* ─── Brand wordmark ─── flat electric indigo in the serif. Holding the mark
+/* ─── Brand wordmark ─── flat prussian blue in the serif. Holding the mark
    to the single brand color (not a gradient) is the core of the refinement:
-   #3B28F6 carries all the energy, everything else stays quiet. The old
-   indigo→lilac→"AI purple" gradient was retired. */
+   the prussian (oklch 0.45 0.125 254, ≈#185598) carries all the energy,
+   everything else stays quiet. The old indigo→lilac→"AI purple" gradient was
+   retired. */
 .gradient-text {
   color: var(--accent-primary);
   font-family: var(--font-heading);
@@ -141,7 +160,7 @@ h3 {
 
 /* ─── Card ─── the single surface primitive.
    ONE card. `.card-lg` only bumps the radius (feed posts, feature tiles, Lab
-   panels). Hover lifts the border to the accent + a soft indigo shadow.
+   panels). Hover lifts the border to the accent + a soft prussian shadow.
    Separation comes from the neutral border; the accent is reserved to mean
    "action", not chrome. */
 .card {
@@ -169,6 +188,20 @@ h3 {
 
 .card-lg {
   border-radius: var(--radius-lg);
+}
+
+/* ─── Popover Surface ─── the single floating-menu chrome: dropdown menus,
+   select popovers, the search-suggestions panel, the simulated-data tooltip.
+   Surface bg, a subtle border, a 12px radius, and the prussian pop shadow
+   (--shadow-pop) — so everything that floats over the page reads as one
+   object. Positioning (absolute/portal), width, and z-index stay at the call
+   site; this owns only the surface treatment. */
+.popover-surface {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-pop);
+  overflow: hidden;
 }
 
 /* ─── Agency Avatar ─── */
@@ -296,7 +329,7 @@ h3 {
 
 .attachment-link:hover {
   border-color: var(--accent-primary);
-  background: rgba(59, 40, 246, 0.05);
+  background: color-mix(in srgb, var(--accent-primary) 5%, transparent);
 }
 
 /* ─── Metadata Pill ─── */

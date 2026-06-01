@@ -17,7 +17,7 @@ interface DemoCalloutProps {
 export function DemoCallout({ agencyCode, docketId }: DemoCalloutProps) {
   return (
     <div
-      className="rounded-xl border border-dashed p-4"
+      className="rounded-md border border-dashed p-4"
       style={{
         borderColor: 'color-mix(in srgb, var(--accent-amber) 40%, transparent)',
         background: 'color-mix(in srgb, var(--accent-amber) 6%, transparent)',

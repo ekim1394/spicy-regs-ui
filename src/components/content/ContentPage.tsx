@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { PageShell } from '@/components/ui/PageShell';
+import { SectionLabel } from '@/components/ui/SectionLabel';
 
 export interface ContentPageProps {
   eyebrow?: string;
@@ -17,12 +18,8 @@ export interface ContentPageProps {
  */
 export function ContentPage({ eyebrow, title, lede, children }: ContentPageProps) {
   return (
-    <PageShell maxWidth="2xl" mainClassName="max-w-2xl mx-auto px-4 py-10">
-      {eyebrow && (
-        <div className="text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--muted)]">
-          {eyebrow}
-        </div>
-      )}
+    <PageShell maxWidth="4xl">
+      {eyebrow && <SectionLabel label={eyebrow} />}
       <h1 className="font-serif text-4xl text-[var(--foreground)] leading-tight mt-1.5 mb-3">
         {title}
       </h1>
