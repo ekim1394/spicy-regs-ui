@@ -12,6 +12,19 @@ export const DEFAULT_SORT: SortOption = 'recent';
 export const DEFAULT_DATE: DateRange = '';
 export const DEFAULT_TYPE: DocketType = '';
 
+/**
+ * Whether to interleave Federal Register publications into the feed river.
+ * Modelled as a string union (not a bare boolean) so it rides the same
+ * URL/localStorage useFilterState plumbing as the other feed filters.
+ */
+export type IncludeFR = 'off' | 'on';
+export const INCLUDE_FR_STORAGE_KEY = 'spicy-regs-include-fr';
+export const DEFAULT_INCLUDE_FR: IncludeFR = 'off';
+
+export function isIncludeFR(raw: string): raw is IncludeFR {
+  return raw === 'off' || raw === 'on';
+}
+
 const SORT_VALUES: readonly SortOption[] = ['recent', 'popular', 'open', 'closed'];
 const DATE_VALUES: readonly DateRange[] = ['', '7d', '30d', '90d', '365d'];
 const TYPE_VALUES: readonly DocketType[] = ['', 'rule', 'nonrule', 'other'];
@@ -28,17 +41,10 @@ export function isDocketType(raw: string): raw is DocketType {
   return (TYPE_VALUES as readonly string[]).includes(raw);
 }
 
-export const SORT_OPTIONS: { key: SortOption; label: string }[] = [
-  { key: 'recent', label: 'New' },
-  { key: 'popular', label: 'Popular' },
-  { key: 'open', label: 'Open for Comment' },
-  { key: 'closed', label: 'Recently Closed' },
-];
-
 /**
- * Sort chips shown in the UI. Excludes 'open' and 'closed' — those are now
- * surfaced through a Status dropdown since they're conceptually status filters
- * with an implied ordering, not pure sort orders.
+ * Sort chips shown in the UI. Excludes 'open' and 'closed', which are surfaced
+ * through the Status dropdown since they're conceptually status filters with an
+ * implied ordering, not pure sort orders.
  */
 export const SORT_CHIP_OPTIONS: { key: SortOption; label: string }[] = [
   { key: 'recent', label: 'New' },
@@ -76,7 +82,6 @@ export type TopicKey = 'environment' | 'health' | 'finance' | 'transport' | 'lab
 
 export interface TopicDefinition {
   label: string;
-  emoji: string;
   agencies: string[];
   keywords: string[];
 }
@@ -84,43 +89,36 @@ export interface TopicDefinition {
 export const TOPIC_MAPPINGS: Record<Exclude<TopicKey, ''>, TopicDefinition> = {
   environment: {
     label: 'Environment',
-    emoji: '🌿',
     agencies: ['EPA', 'NOAA', 'DOI', 'COE', 'CEQ'],
     keywords: ['air', 'water', 'climate', 'emission', 'wildlife', 'pollution'],
   },
   health: {
     label: 'Health',
-    emoji: '🏥',
     agencies: ['FDA', 'CDC', 'CMS', 'HHS', 'AHRQ', 'NIH'],
     keywords: ['drug', 'medicine', 'health', 'patient', 'hospital', 'vaccine'],
   },
   finance: {
     label: 'Finance',
-    emoji: '💰',
     agencies: ['SEC', 'CFPB', 'OCC', 'FDIC', 'TREAS', 'IRS', 'FTC'],
     keywords: ['banking', 'credit', 'tax', 'financial', 'stock', 'audit'],
   },
   transport: {
     label: 'Transport',
-    emoji: '✈️',
     agencies: ['DOT', 'FAA', 'FHWA', 'FRA', 'NHTSA', 'MARAD', 'TSA'],
     keywords: ['aviation', 'vehicle', 'highway', 'rail', 'bridge', 'safety'],
   },
   labor: {
     label: 'Labor',
-    emoji: '👷',
     agencies: ['DOL', 'OSHA', 'EBSA', 'ETA', 'MSHA', 'VETS', 'WHD'],
     keywords: ['work', 'employee', 'wage', 'safety', 'union', 'pension'],
   },
   energy: {
     label: 'Energy',
-    emoji: '⚡',
     agencies: ['DOE', 'NRC', 'FERC', 'NNSA', 'BOEM', 'BSEE'],
     keywords: ['nuclear', 'grid', 'energy', 'oil', 'gas', 'renewable'],
   },
   security: {
     label: 'Security',
-    emoji: '🛡️',
     agencies: ['DHS', 'CISA', 'DOJ', 'FBI', 'ATF', 'DEA'],
     keywords: ['threat', 'cyber', 'defense', 'police', 'crime', 'border'],
   },
@@ -133,9 +131,9 @@ export function isTopicKey(raw: string): raw is TopicKey {
   return raw === '' || Object.keys(TOPIC_MAPPINGS).includes(raw);
 }
 
-export const TOPIC_OPTIONS: { key: TopicKey; label: string; emoji: string }[] = [
-  { key: '', label: 'All Topics', emoji: '✨' },
+export const TOPIC_OPTIONS: { key: TopicKey; label: string }[] = [
+  { key: '', label: 'All Topics' },
   ...(Object.entries(TOPIC_MAPPINGS) as [Exclude<TopicKey, ''>, TopicDefinition][]).map(
-    ([key, def]) => ({ key, label: def.label, emoji: def.emoji }),
+    ([key, def]) => ({ key, label: def.label }),
   ),
 ];

@@ -144,7 +144,31 @@ interface AgencyJson {
   favicon: string | null;
 }
 
-/** Build lookup map from agencies.json */
+/**
+ * Deterministic avatar color for agencies without a curated brand color.
+ * Hashes the code to a hue but pins lightness + chroma to the same muted band
+ * as the curated `--agency-*` palette (see globals.css), so the long tail of
+ * uncurated agencies reads as distinct, in-key colors rather than a single
+ * flat `--agency-default` prussian.
+ */
+export function deriveAgencyColor(seed: string): string {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = seed.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const hue = Math.abs(hash) % 360;
+  return `oklch(0.56 0.072 ${hue})`;
+}
+
+/**
+ * Build lookup map from agencies.json.
+ *
+ * `favicon` is pre-validated by scripts/validate_favicons.mjs: it's either a
+ * Google favicon URL confirmed to serve a real icon of at least the Avatar's
+ * quality floor, or `null`. Domains where Google has no favicon (it would paint
+ * a generic globe) and icons below the floor are already nulled there, so the
+ * Avatar can use this value as-is and fall back to initials on `null`.
+ */
 const AGENCY_MAP = new Map<string, AgencyInfo>();
 for (const entry of agenciesData as AgencyJson[]) {
   const extras = CURATED_EXTRAS[entry.code] || {};
@@ -153,7 +177,7 @@ for (const entry of agenciesData as AgencyJson[]) {
     name: entry.name,
     shortName: entry.code,
     description: entry.description || 'Federal regulatory agency.',
-    color: extras.color || 'var(--agency-default)',
+    color: extras.color || deriveAgencyColor(entry.code),
     website: entry.website,
     favicon: entry.favicon,
     relatedAgencies: extras.relatedAgencies || [],
@@ -177,7 +201,7 @@ export function getAgencyInfo(code: string): AgencyInfo {
     name: upper,
     shortName: upper,
     description: 'Federal regulatory agency.',
-    color: 'var(--agency-default)',
+    color: deriveAgencyColor(upper),
     website: null,
     favicon: null,
     relatedAgencies: [],
@@ -190,6 +214,145 @@ export function getAgencyInfo(code: string): AgencyInfo {
 /** Get all known agencies sorted by name */
 export function getAllKnownAgencies(): AgencyInfo[] {
   return Array.from(AGENCY_MAP.values()).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Parent-department groupings for the Agencies directory and the
+ * AgencyIdentity "parent dept" line. Editorial groupings, not a strict
+ * org chart — they map each agency code to the cabinet department (or
+ * independent grouping) a reader would expect to find it under.
+ *
+ * Order is display order. Agencies not listed here fall into the
+ * `UNGROUPED_DEPT` bucket via getAllKnownAgenciesByDept().
+ */
+export const UNGROUPED_DEPT = 'Other agencies';
+
+export const DEPARTMENT_MAP: { dept: string; codes: string[] }[] = [
+  { dept: 'Agriculture', codes: [
+    'USDA', 'AMS', 'APHIS', 'ARS', 'CCC', 'CSREES', 'ERS', 'FAS', 'FCIC',
+    'FNS', 'FPAC', 'FS', 'FSA', 'FSIS', 'GIPSA', 'NAL', 'NASS', 'NIFA',
+    'NRCS', 'RBS', 'RHS', 'RMA', 'RTB', 'RUS', 'USDAIG',
+  ] },
+  { dept: 'Commerce', codes: [
+    'DOC', 'BIS', 'EDA', 'ESA', 'ITA', 'MBDA', 'NIST', 'NOAA', 'NTIA',
+    'PTO', 'USBC',
+  ] },
+  { dept: 'Defense', codes: ['DOD', 'USA', 'USAF', 'USN', 'COE'] },
+  { dept: 'Education', codes: ['ED'] },
+  { dept: 'Energy', codes: [
+    'DOE', 'BPA', 'EERE', 'EIA', 'NNSA', 'OEPNU', 'SWPA', 'WAPA',
+  ] },
+  { dept: 'Health & Human Services', codes: [
+    'HHS', 'ACF', 'ACL', 'AHRQ', 'AOA', 'ATSDR', 'CDC', 'CMS', 'FDA',
+    'HHSIG', 'HRSA', 'IHS', 'NIH', 'SAMHSA',
+  ] },
+  { dept: 'Homeland Security', codes: [
+    'DHS', 'CISA', 'FEMA', 'FLETC', 'FIRSTNET', 'ICEB', 'TSA', 'USCBP',
+    'USCG', 'USCIS',
+  ] },
+  { dept: 'Housing & Urban Development', codes: ['HUD'] },
+  { dept: 'Interior', codes: [
+    'DOI', 'BIA', 'BLM', 'BOEM', 'BOR', 'BSEE', 'FWS', 'MMS', 'NPS',
+    'ONRR', 'OSM', 'USGS',
+  ] },
+  { dept: 'Justice', codes: [
+    'DOJ', 'ATF', 'ATR', 'BOP', 'DEA', 'EOIR', 'FBI', 'OJJDP', 'OJP', 'USPC',
+  ] },
+  { dept: 'Labor', codes: [
+    'DOL', 'BLS', 'EBSA', 'ECAB', 'ETA', 'MSHA', 'OFCCP', 'OSHA', 'VETS', 'WHD',
+  ] },
+  { dept: 'State', codes: ['DOS', 'AID'] },
+  { dept: 'Transportation', codes: [
+    'DOT', 'FAA', 'FHWA', 'FMCSA', 'FRA', 'FTA', 'MARAD', 'NHTSA',
+    'PHMSA', 'RITA', 'SLSDC',
+  ] },
+  { dept: 'Treasury', codes: [
+    'TREAS', 'BPD', 'CDFI', 'FINCEN', 'FISCAL', 'IRS', 'OCC', 'OFAC',
+    'OTS', 'TTB', 'USMINT',
+  ] },
+  { dept: 'Veterans Affairs', codes: ['VA'] },
+  { dept: 'Environmental Protection Agency', codes: ['EPA', 'EAB'] },
+  { dept: 'Executive Office of the President', codes: [
+    'OMB', 'OSTP', 'ONDCP', 'ONCD', 'IPEC', 'CEQ', 'USTR', 'OFPP', 'NSPC',
+  ] },
+  { dept: 'Independent agencies', codes: [
+    'SEC', 'FCC', 'FTC', 'CFPB', 'CPSC', 'CSB', 'EEOC', 'EIB', 'FMC',
+    'FRTIB', 'GSA', 'NARA', 'NASA', 'NCUA', 'NLRB', 'NRC', 'NSF', 'NTSB',
+    'OPM', 'PBGC', 'PCLOB', 'SBA', 'SSA', 'NIGC', 'ASC', 'FFIEC',
+  ] },
+];
+
+/** Reverse lookup: agency code → parent department label. */
+const CODE_TO_DEPT = new Map<string, string>();
+for (const { dept, codes } of DEPARTMENT_MAP) {
+  for (const code of codes) CODE_TO_DEPT.set(code, dept);
+}
+
+/**
+ * Parent department for an agency code, or `UNGROUPED_DEPT` if unmapped.
+ * Used by the AgencyIdentity card's "parent dept" line.
+ */
+export function getParentDept(code: string): string {
+  return CODE_TO_DEPT.get(code.toUpperCase()) ?? UNGROUPED_DEPT;
+}
+
+/**
+ * All known agencies grouped by parent department, in DEPARTMENT_MAP order,
+ * with any unmapped agencies collected under `UNGROUPED_DEPT` last. Agencies
+ * within each group are sorted by name. Empty groups are omitted. Drives the
+ * Agencies directory's department section headers.
+ */
+export function getAllKnownAgenciesByDept(): { dept: string; agencies: AgencyInfo[] }[] {
+  const all = getAllKnownAgencies();
+  const byDept = new Map<string, AgencyInfo[]>();
+  for (const agency of all) {
+    const dept = getParentDept(agency.code);
+    const list = byDept.get(dept);
+    if (list) list.push(agency);
+    else byDept.set(dept, [agency]);
+  }
+
+  const ordered: { dept: string; agencies: AgencyInfo[] }[] = [];
+  for (const { dept } of DEPARTMENT_MAP) {
+    const agencies = byDept.get(dept);
+    if (agencies && agencies.length > 0) {
+      ordered.push({ dept, agencies });
+    }
+  }
+  const ungrouped = byDept.get(UNGROUPED_DEPT);
+  if (ungrouped && ungrouped.length > 0) {
+    ordered.push({ dept: UNGROUPED_DEPT, agencies: ungrouped });
+  }
+  return ordered;
+}
+
+/**
+ * Agencies to surface as "related" on the profile page. Prefers the curated
+ * cross-department picks (EPA → DOE, DOT, …); when an agency has none — most
+ * don't — falls back to its parent-department siblings so every profile still
+ * shows real connections. The agency itself and any unknown/duplicate codes are
+ * filtered out, and the list is capped at `limit`.
+ */
+export function getRelatedAgencies(code: string, limit = 6): AgencyInfo[] {
+  const upper = code.toUpperCase();
+  const curated = getAgencyInfo(upper).relatedAgencies;
+  let codes: string[] = curated && curated.length > 0 ? curated : [];
+  if (codes.length === 0) {
+    const dept = getParentDept(upper);
+    const group = getAllKnownAgenciesByDept().find((g) => g.dept === dept);
+    codes = (group?.agencies ?? []).map((a) => a.code);
+  }
+
+  const seen = new Set<string>([upper]);
+  const out: AgencyInfo[] = [];
+  for (const c of codes) {
+    const cc = c.toUpperCase();
+    if (seen.has(cc) || !AGENCY_MAP.has(cc)) continue;
+    seen.add(cc);
+    out.push(getAgencyInfo(cc));
+    if (out.length >= limit) break;
+  }
+  return out;
 }
 
 /** Generate a deterministic color for avatars based on a string */

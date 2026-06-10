@@ -4,21 +4,21 @@
     "name": "Administration of Children and Families",
     "description": null,
     "website": "https://www.acf.hhs.gov/",
-    "favicon": "https://www.acf.hhs.gov/themes/custom/acf_enterprise/favicon.ico"
+    "favicon": null
   },
   {
     "code": "ACL",
     "name": "Administration for Community Living",
     "description": null,
     "website": "https://acl.gov/",
-    "favicon": "https://acl.gov/sites/default/files/favicon.ico"
+    "favicon": null
   },
   {
     "code": "AHRQ",
     "name": "Agency for Healthcare Research and Quality",
     "description": null,
     "website": "https://www.ahrq.gov/",
-    "favicon": null
+    "favicon": "https://www.google.com/s2/favicons?domain=www.ahrq.gov&sz=128"
   },
   {
     "code": "AID",
@@ -53,7 +53,7 @@
     "name": "Agricultural Research Service",
     "description": null,
     "website": "https://www.ars.usda.gov/",
-    "favicon": "https://www.ars.usda.gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.ars.usda.gov&sz=128"
   },
   {
     "code": "ASC",
@@ -88,42 +88,42 @@
     "name": "Agency for Toxic Substances and Disease Registry",
     "description": null,
     "website": "https://www.atsdr.cdc.gov/",
-    "favicon": "https://www.atsdr.cdc.gov/TemplatePackage/5.0/img/favicon/favicon-32x32.png"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.atsdr.cdc.gov&sz=128"
   },
   {
     "code": "BIA",
     "name": "Bureau of Indian Affairs",
     "description": null,
     "website": "https://www.bia.gov/",
-    "favicon": "https://www.bia.gov/sites/default/files/default_images/favicon.ico"
+    "favicon": null
   },
   {
     "code": "BIS",
     "name": "Bureau of Industry and Security",
     "description": null,
     "website": "https://www.bis.doc.gov/",
-    "favicon": null
+    "favicon": "https://www.google.com/s2/favicons?domain=www.bis.doc.gov&sz=128"
   },
   {
     "code": "BLM",
     "name": "Bureau of Land Management",
     "description": null,
     "website": "https://www.blm.gov/",
-    "favicon": "https://www.blm.gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.blm.gov&sz=128"
   },
   {
     "code": "BLS",
     "name": "Bureau of Labor Statistics",
     "description": null,
     "website": "https://stats.bls.gov/",
-    "favicon": "https://www.bls.gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=stats.bls.gov&sz=128"
   },
   {
     "code": "BOEM",
     "name": "Bureau of Ocean Energy Management",
     "description": null,
     "website": "https://www.boem.gov/",
-    "favicon": "https://www.boem.gov/sites/default/files/favicon.png"
+    "favicon": null
   },
   {
     "code": "BOP",
@@ -144,7 +144,7 @@
     "name": "Bonneville Power Administration",
     "description": null,
     "website": "https://www.bpa.gov/",
-    "favicon": "https://www.bpa.gov/Project.Aep/assets/img/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.bpa.gov&sz=128"
   },
   {
     "code": "BPD",
@@ -165,7 +165,7 @@
     "name": "Bureau of Safety and Environmental Enforcement",
     "description": null,
     "website": "https://www.bsee.gov/",
-    "favicon": "https://www.bsee.gov/themes/custom/uswds_bsee/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.bsee.gov&sz=128"
   },
   {
     "code": "CCC",
@@ -179,7 +179,7 @@
     "name": "Centers for Disease Control and Prevention",
     "description": null,
     "website": "https://www.cdc.gov/",
-    "favicon": "https://www.cdc.gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.cdc.gov&sz=128"
   },
   {
     "code": "CDFI",
@@ -193,28 +193,28 @@
     "name": "Council on Environmental Quality",
     "description": null,
     "website": "https://www.whitehouse.gov/ceq/",
-    "favicon": "https://www.whitehouse.gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.whitehouse.gov&sz=128"
   },
   {
     "code": "CFPB",
     "name": "Consumer Financial Protection Bureau",
     "description": null,
     "website": "https://www.consumerfinance.gov/",
-    "favicon": "https://www.consumerfinance.gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.consumerfinance.gov&sz=128"
   },
   {
     "code": "CISA",
     "name": "Cybersecurity and Infrastructure Security Agency",
     "description": null,
     "website": "https://www.cisa.gov/",
-    "favicon": "https://www.cisa.gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.cisa.gov&sz=128"
   },
   {
     "code": "CMS",
     "name": "Centers for Medicare&Medicaid Services",
     "description": null,
     "website": "https://www.cms.gov/",
-    "favicon": "https://www.cms.gov/sites/default/files/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.cms.gov&sz=128"
   },
   {
     "code": "CNCS",
@@ -249,14 +249,14 @@
     "name": "Consumer Product Safety Commission",
     "description": null,
     "website": "https://www.cpsc.gov/",
-    "favicon": "https://www.cpsc.gov/s3fs-public/favicon_cpsc.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.cpsc.gov&sz=128"
   },
   {
     "code": "CSB",
     "name": "Chemical Safety and Hazard Investigation Board",
     "description": null,
     "website": "https://www.csb.gov/",
-    "favicon": "https://www.csb.gov/cms/icons/favicon-32x32.png"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.csb.gov&sz=128"
   },
   {
     "code": "CSEO",
@@ -298,63 +298,63 @@
     "name": "Department of Homeland Security",
     "description": "Safeguarding the American people, the homeland, and our values.",
     "website": "https://www.dhs.gov/",
-    "favicon": "https://www.dhs.gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.dhs.gov&sz=128"
   },
   {
     "code": "DOC",
     "name": "Department of Commerce",
     "description": null,
     "website": "https://www.commerce.gov/",
-    "favicon": null
+    "favicon": "https://www.google.com/s2/favicons?domain=www.commerce.gov&sz=128"
   },
   {
     "code": "DOD",
     "name": "Department of Defense",
     "description": "Providing military forces needed to deter war and ensure national security.",
     "website": "https://www.defense.gov/",
-    "favicon": null
+    "favicon": "https://www.google.com/s2/favicons?domain=www.defense.gov&sz=128"
   },
   {
     "code": "DOE",
     "name": "Department of Energy",
     "description": "Addressing energy, environmental, and nuclear challenges through science and technology.",
     "website": "https://www.energy.gov/",
-    "favicon": "https://www.energy.gov/themes/custom/energy_gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.energy.gov&sz=128"
   },
   {
     "code": "DOI",
     "name": "Department of the Interior",
     "description": null,
     "website": "https://www.doi.gov/",
-    "favicon": "https://www.doi.gov/themes/custom/doi_uswds/favicon.ico"
+    "favicon": null
   },
   {
     "code": "DOJ",
     "name": "Department of Justice",
     "description": "Enforcing the law and defending the interests of the United States.",
     "website": "https://www.justice.gov/",
-    "favicon": "https://www.justice.gov/themes/custom/usdoj_uswds/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.justice.gov&sz=128"
   },
   {
     "code": "DOL",
     "name": "Department of Labor",
     "description": null,
     "website": "https://www.dol.gov/",
-    "favicon": "https://www.dol.gov/themes/opa_theme/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.dol.gov&sz=128"
   },
   {
     "code": "DOS",
     "name": "U.S. Department of State",
     "description": null,
     "website": "https://www.state.gov/",
-    "favicon": null
+    "favicon": "https://www.google.com/s2/favicons?domain=www.state.gov&sz=128"
   },
   {
     "code": "DOT",
     "name": "Department of Transportation",
     "description": "Ensuring a fast, safe, efficient, accessible, and convenient transportation system.",
     "website": "https://www.transportation.gov/",
-    "favicon": null
+    "favicon": "https://www.google.com/s2/favicons?domain=www.transportation.gov&sz=128"
   },
   {
     "code": "EAB",
@@ -368,14 +368,14 @@
     "name": "Election Assistance Commission",
     "description": null,
     "website": "http://www.eac.gov/",
-    "favicon": "http://www.eac.gov/themes/custom/eac_uswds/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.eac.gov&sz=128"
   },
   {
     "code": "EBSA",
     "name": "Employee Benefits Security Administration",
     "description": null,
     "website": "https://www.dol.gov/agencies/ebsa",
-    "favicon": "https://www.dol.gov/themes/opa_theme/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.dol.gov&sz=128"
   },
   {
     "code": "ECAB",
@@ -396,35 +396,35 @@
     "name": "Department of Education",
     "description": "Promoting student achievement and preparation for global competitiveness.",
     "website": "https://www.ed.gov/",
-    "favicon": "https://www.ed.gov/themes/custom/edgov/favicon.ico"
+    "favicon": null
   },
   {
     "code": "EDA",
     "name": "Economic Development Administration",
     "description": null,
     "website": "https://www.eda.gov/",
-    "favicon": null
+    "favicon": "https://www.google.com/s2/favicons?domain=www.eda.gov&sz=128"
   },
   {
     "code": "EEOC",
     "name": "Equal Employment Opportunity Commission",
     "description": null,
     "website": "https://www.eeoc.gov/",
-    "favicon": "https://www.eeoc.gov/themes/custom/eeoc_uswds/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.eeoc.gov&sz=128"
   },
   {
     "code": "EERE",
     "name": "Energy Efficiency and Renewable Energy Office",
     "description": null,
     "website": "https://www.energy.gov/eere/office-energy-efficiency-renewable-energy",
-    "favicon": "https://www.energy.gov/themes/custom/energy_gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.energy.gov&sz=128"
   },
   {
     "code": "EIA",
     "name": "Energy Information Administration",
     "description": null,
     "website": "https://www.eia.gov/",
-    "favicon": "https://www.eia.gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.eia.gov&sz=128"
   },
   {
     "code": "EIB",
@@ -445,21 +445,21 @@
     "name": "Executive Office for Immigration Review",
     "description": null,
     "website": "https://www.justice.gov/eoir",
-    "favicon": "https://www.justice.gov/themes/custom/usdoj_uswds/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.justice.gov&sz=128"
   },
   {
     "code": "EPA",
     "name": "Environmental Protection Agency",
     "description": "Protecting human health and the environment through regulations on air quality, water, chemicals, and waste.",
     "website": "https://www.epa.gov/",
-    "favicon": "https://www.epa.gov/themes/epa_theme/images/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.epa.gov&sz=128"
   },
   {
     "code": "ERS",
     "name": "Economic Research Service",
     "description": null,
     "website": "https://www.ers.usda.gov/",
-    "favicon": "https://www.ers.usda.gov/themes/custom/uswds_ers/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.ers.usda.gov&sz=128"
   },
   {
     "code": "ERULE",
@@ -480,7 +480,7 @@
     "name": "Employment and Training Administration",
     "description": null,
     "website": "https://www.doleta.gov/",
-    "favicon": "https://www.doleta.gov/themes/opa_theme/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.doleta.gov&sz=128"
   },
   {
     "code": "FAA",
@@ -501,14 +501,14 @@
     "name": "Foreign Agricultural Service",
     "description": null,
     "website": "https://www.fas.usda.gov/",
-    "favicon": null
+    "favicon": "https://www.google.com/s2/favicons?domain=www.fas.usda.gov&sz=128"
   },
   {
     "code": "FBI",
     "name": "Federal Bureau of Investigation",
     "description": null,
     "website": "https://www.fbi.gov/",
-    "favicon": "https://www.fbi.gov/@@favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.fbi.gov&sz=128"
   },
   {
     "code": "FCIC",
@@ -522,35 +522,35 @@
     "name": "Foreign Claims Settlement Commission",
     "description": null,
     "website": "https://www.justice.gov/fcsc",
-    "favicon": "https://www.justice.gov/themes/custom/usdoj_uswds/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.justice.gov&sz=128"
   },
   {
     "code": "FDA",
     "name": "Food and Drug Administration",
     "description": "Ensuring the safety of food, drugs, medical devices, cosmetics, and tobacco products.",
     "website": "https://www.fda.gov/",
-    "favicon": "https://www.fda.gov/favicon.ico"
+    "favicon": null
   },
   {
     "code": "FEMA",
     "name": "Federal Emergency Management Agency",
     "description": null,
     "website": "https://www.fema.gov/",
-    "favicon": "https://www.fema.gov/profiles/femad8_gov/themes/fema_uswds/images/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.fema.gov&sz=128"
   },
   {
     "code": "FFIEC",
     "name": "Federal Financial Institutions Examination Council",
     "description": null,
     "website": "http://www.ffiec.gov/",
-    "favicon": "http://www.ffiec.gov/sites/default/files/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.ffiec.gov&sz=128"
   },
   {
     "code": "FHWA",
     "name": "Federal Highway Administration",
     "description": null,
     "website": "https://highways.dot.gov/",
-    "favicon": null
+    "favicon": "https://www.google.com/s2/favicons?domain=highways.dot.gov&sz=128"
   },
   {
     "code": "FINCEN",
@@ -578,21 +578,21 @@
     "name": "Federal Law Enforcement Training Center",
     "description": null,
     "website": "https://www.fletc.gov/",
-    "favicon": "https://www.fletc.gov/favicon.ico"
+    "favicon": null
   },
   {
     "code": "FMC",
     "name": "Federal Maritime Commission",
     "description": null,
     "website": "https://www.fmc.gov/",
-    "favicon": "https://www.fmc.gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.fmc.gov&sz=128"
   },
   {
     "code": "FMCSA",
     "name": "Federal Motor Carrier Safety Administration",
     "description": null,
     "website": "https://www.fmcsa.dot.gov/",
-    "favicon": null
+    "favicon": "https://www.google.com/s2/favicons?domain=www.fmcsa.dot.gov&sz=128"
   },
   {
     "code": "FNS",
@@ -613,14 +613,14 @@
     "name": "Federal Railroad Administration",
     "description": null,
     "website": "https://railroads.dot.gov/",
-    "favicon": null
+    "favicon": "https://www.google.com/s2/favicons?domain=railroads.dot.gov&sz=128"
   },
   {
     "code": "FRTIB",
     "name": "Federal Retirement Thrift Investment Board",
     "description": null,
     "website": "https://www.frtib.gov/",
-    "favicon": "https://www.frtib.gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.frtib.gov&sz=128"
   },
   {
     "code": "FS",
@@ -634,14 +634,14 @@
     "name": "Farm Service Agency",
     "description": null,
     "website": "https://www.fsa.usda.gov/",
-    "favicon": null
+    "favicon": "https://www.google.com/s2/favicons?domain=www.fsa.usda.gov&sz=128"
   },
   {
     "code": "FSIS",
     "name": "Food Safety and Inspection Service",
     "description": null,
     "website": "https://www.fsis.usda.gov/",
-    "favicon": null
+    "favicon": "https://www.google.com/s2/favicons?domain=www.fsis.usda.gov&sz=128"
   },
   {
     "code": "FSOC",
@@ -655,14 +655,14 @@
     "name": "Federal Transit Administration",
     "description": null,
     "website": "https://www.transit.dot.gov/",
-    "favicon": null
+    "favicon": "https://www.google.com/s2/favicons?domain=www.transit.dot.gov&sz=128"
   },
   {
     "code": "FTC",
     "name": "Federal Trade Commission",
     "description": null,
     "website": "https://www.ftc.gov/",
-    "favicon": "https://www.ftc.gov/themes/custom/ftc_uswds/favicon.ico"
+    "favicon": null
   },
   {
     "code": "FTZB",
@@ -676,7 +676,7 @@
     "name": "Fish and Wildlife Service",
     "description": null,
     "website": "https://www.fws.gov/",
-    "favicon": "https://www.fws.gov/themes/custom/fws_gov/favicon.ico"
+    "favicon": null
   },
   {
     "code": "GAPFAC",
@@ -697,7 +697,7 @@
     "name": "General Services Administration",
     "description": null,
     "website": "https://www.gsa.gov/",
-    "favicon": "https://www.gsa.gov/sites/gsa.gov/themes/custom/gsa/favicon/favicon-96x96.png"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.gsa.gov&sz=128"
   },
   {
     "code": "HHS",
@@ -718,14 +718,14 @@
     "name": "Health Resources and Services Administration",
     "description": null,
     "website": "https://www.hrsa.gov/",
-    "favicon": null
+    "favicon": "https://www.google.com/s2/favicons?domain=www.hrsa.gov&sz=128"
   },
   {
     "code": "HUD",
     "name": "Department of Housing and Urban Development",
     "description": "Creating strong, sustainable, inclusive communities and quality affordable homes for all.",
     "website": "https://www.hud.gov/",
-    "favicon": "https://www.hud.gov/themes/custom/bootstrap_hudgov_v2021_t1/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.hud.gov&sz=128"
   },
   {
     "code": "ICEB",
@@ -753,7 +753,7 @@
     "name": "Internal Revenue Service",
     "description": null,
     "website": "https://www.irs.gov/",
-    "favicon": "https://www.irs.gov/themes/custom/pup_base/favicon.ico"
+    "favicon": null
   },
   {
     "code": "ISOO",
@@ -767,7 +767,7 @@
     "name": "International Trade Administration",
     "description": null,
     "website": "https://www.trade.gov/",
-    "favicon": "https://www.trade.gov/themes/custom/ita/favicon.ico"
+    "favicon": null
   },
   {
     "code": "LMSO",
@@ -781,7 +781,7 @@
     "name": "Maritime Administration",
     "description": null,
     "website": "https://www.maritime.dot.gov/",
-    "favicon": null
+    "favicon": "https://www.google.com/s2/favicons?domain=www.maritime.dot.gov&sz=128"
   },
   {
     "code": "MBDA",
@@ -802,35 +802,35 @@
     "name": "Mine Safety and Health Administration",
     "description": null,
     "website": "https://www.msha.gov/",
-    "favicon": "https://www.msha.gov/sites/default/files/msha-favicon_1_0.png"
+    "favicon": null
   },
   {
     "code": "NAL",
     "name": "National Agricultural Library",
     "description": null,
     "website": "https://www.nal.usda.gov/",
-    "favicon": "https://www.nal.usda.gov/themes/custom/global_subtheme/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.nal.usda.gov&sz=128"
   },
   {
     "code": "NARA",
     "name": "National Archives and Records Administration",
     "description": null,
     "website": "https://www.archives.gov/",
-    "favicon": "https://www.archives.gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.archives.gov&sz=128"
   },
   {
     "code": "NASA",
     "name": "National Aeronautics and Space Administration",
     "description": null,
     "website": "https://www.nasa.gov/",
-    "favicon": "https://www.nasa.gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.nasa.gov&sz=128"
   },
   {
     "code": "NASS",
     "name": "National Agricultural Statistics Service",
     "description": null,
     "website": "https://www.nass.usda.gov/",
-    "favicon": "https://www.nass.usda.gov/favicon.ico"
+    "favicon": null
   },
   {
     "code": "NCS",
@@ -844,7 +844,7 @@
     "name": "National Credit Union Administration",
     "description": null,
     "website": "https://www.ncua.gov/",
-    "favicon": "https://www.ncua.gov/sites/default/files/footer_ncua_logo.png"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.ncua.gov&sz=128"
   },
   {
     "code": "NHTSA",
@@ -872,28 +872,28 @@
     "name": "National Institutes of Health",
     "description": null,
     "website": "https://www.nih.gov/",
-    "favicon": "https://www.nih.gov/themes/custom/nih2_uswds/assets/img/favicons/custom/favicon-192x192.png"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.nih.gov&sz=128"
   },
   {
     "code": "NIST",
     "name": "National Institute of Standards and Technology",
     "description": null,
     "website": "https://www.nist.gov/",
-    "favicon": "https://www.nist.gov/themes/custom/nist_www/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.nist.gov&sz=128"
   },
   {
     "code": "NLRB",
     "name": "National Labor Relations Board",
     "description": null,
     "website": "https://www.nlrb.gov/",
-    "favicon": "https://www.nlrb.gov/sites/default/files/favicon_0.ico"
+    "favicon": null
   },
   {
     "code": "NNSA",
     "name": "National Nuclear Security Administration",
     "description": null,
     "website": "https://www.energy.gov/nnsa/national-nuclear-security-administration",
-    "favicon": "https://www.energy.gov/themes/custom/energy_gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.energy.gov&sz=128"
   },
   {
     "code": "NOAA",
@@ -907,28 +907,28 @@
     "name": "National Park Service",
     "description": null,
     "website": "https://www.nps.gov/index.htm",
-    "favicon": "https://www.nps.gov/favicon.ico"
+    "favicon": null
   },
   {
     "code": "NRC",
     "name": "Nuclear Regulatory Commission",
     "description": null,
     "website": "http://www.nrc.gov/",
-    "favicon": "https://www.nrc.gov/cdn/site/logo/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.nrc.gov&sz=128"
   },
   {
     "code": "NRCS",
     "name": "Natural Resources Conservation Service",
     "description": null,
     "website": "https://www.nrcs.usda.gov/",
-    "favicon": null
+    "favicon": "https://www.google.com/s2/favicons?domain=www.nrcs.usda.gov&sz=128"
   },
   {
     "code": "NSF",
     "name": "National Science Foundation",
     "description": null,
     "website": "http://www.nsf.gov/",
-    "favicon": "https://www.nsf.gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.nsf.gov&sz=128"
   },
   {
     "code": "NSPC",
@@ -942,21 +942,21 @@
     "name": "National Telecommunications and Information Administration",
     "description": null,
     "website": "http://www.ntia.doc.gov/",
-    "favicon": null
+    "favicon": "https://www.google.com/s2/favicons?domain=www.ntia.doc.gov&sz=128"
   },
   {
     "code": "NTSB",
     "name": "National Transportation Safety Board",
     "description": null,
     "website": "https://www.ntsb.gov/Pages/default.aspx",
-    "favicon": "https://www.ntsb.gov/style%20library/ntsb/images/favicon.ico"
+    "favicon": null
   },
   {
     "code": "OCC",
     "name": "Comptroller of the Currency",
     "description": null,
     "website": "http://www.occ.gov/",
-    "favicon": "http://www.occ.gov/images/occ-seal.gif"
+    "favicon": null
   },
   {
     "code": "OEPNU",
@@ -991,7 +991,7 @@
     "name": "Office of the Federal Register",
     "description": null,
     "website": "https://www.archives.gov/federal-register",
-    "favicon": "https://www.archives.gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.archives.gov&sz=128"
   },
   {
     "code": "OJJDP",
@@ -1005,14 +1005,14 @@
     "name": "Justice Programs Office",
     "description": null,
     "website": "https://ojp.gov/",
-    "favicon": "https://ojp.gov/themes/custom/ojp/assets/images/ojp/favicon.png"
+    "favicon": null
   },
   {
     "code": "OMB",
     "name": "Office of Management and Budget",
     "description": null,
     "website": "https://www.whitehouse.gov/omb/",
-    "favicon": "https://www.whitehouse.gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.whitehouse.gov&sz=128"
   },
   {
     "code": "ONCD",
@@ -1026,21 +1026,21 @@
     "name": "Office of National Drug Control Policy",
     "description": null,
     "website": "http://www.whitehouse.gov/ondcp",
-    "favicon": "https://www.whitehouse.gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.whitehouse.gov&sz=128"
   },
   {
     "code": "ONRR",
     "name": "Office of Natural Resources Revenue",
     "description": null,
     "website": "https://onrr.gov/",
-    "favicon": "https://onrr.gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=onrr.gov&sz=128"
   },
   {
     "code": "OPM",
     "name": "Office of Personnel Management",
     "description": null,
     "website": "https://www.opm.gov/",
-    "favicon": "https://www.opm.gov/favicon.ico"
+    "favicon": null
   },
   {
     "code": "OPPM",
@@ -1054,7 +1054,7 @@
     "name": "Occupational Safety and Health Administration",
     "description": null,
     "website": "https://www.osha.gov/",
-    "favicon": "https://www.osha.gov/sites/default/themes/custom/osha/favicon.ico"
+    "favicon": null
   },
   {
     "code": "OSM",
@@ -1068,7 +1068,7 @@
     "name": "Office of Science and Technology Policy",
     "description": null,
     "website": "https://www.whitehouse.gov/ostp/",
-    "favicon": "https://www.whitehouse.gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.whitehouse.gov&sz=128"
   },
   {
     "code": "OTS",
@@ -1082,14 +1082,14 @@
     "name": "Pension Benefit Guaranty Corporation",
     "description": null,
     "website": "https://www.pbgc.gov/",
-    "favicon": "https://www.pbgc.gov/themes/custom/pbgc_theme/favicon.ico"
+    "favicon": null
   },
   {
     "code": "PCLOB",
     "name": "Privacy and Civil Liberties Oversight Board",
     "description": null,
     "website": "https://www.pclob.gov/",
-    "favicon": "https://www.pclob.gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.pclob.gov&sz=128"
   },
   {
     "code": "PCSCOTUS",
@@ -1103,7 +1103,7 @@
     "name": "Pipeline and Hazardous Materials Safety Administration",
     "description": null,
     "website": "http://www.phmsa.dot.gov/",
-    "favicon": null
+    "favicon": "https://www.google.com/s2/favicons?domain=www.phmsa.dot.gov&sz=128"
   },
   {
     "code": "PTO",
@@ -1138,7 +1138,7 @@
     "name": "Risk Management Agency",
     "description": null,
     "website": "http://www.rma.usda.gov/",
-    "favicon": "https://www.rma.usda.gov/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.rma.usda.gov&sz=128"
   },
   {
     "code": "RTB",
@@ -1159,14 +1159,14 @@
     "name": "Substance Abuse and Mental Health Services Administration",
     "description": null,
     "website": "https://www.samhsa.gov/",
-    "favicon": "https://www.samhsa.gov/themes/custom/samhsa_uswds_base/favicon.ico"
+    "favicon": null
   },
   {
     "code": "SBA",
     "name": "Small Business Administration",
     "description": null,
     "website": "http://www.sba.gov/",
-    "favicon": "http://www.sba.gov/themes/custom/sba/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.sba.gov&sz=128"
   },
   {
     "code": "SLSDC",
@@ -1180,7 +1180,7 @@
     "name": "Social Security Administration",
     "description": null,
     "website": "http://www.ssa.gov/",
-    "favicon": null
+    "favicon": "https://www.google.com/s2/favicons?domain=www.ssa.gov&sz=128"
   },
   {
     "code": "SWPA",
@@ -1215,7 +1215,7 @@
     "name": "Transportation Security Administration",
     "description": null,
     "website": "https://www.tsa.gov/",
-    "favicon": "https://www.tsa.gov/favicon.ico"
+    "favicon": null
   },
   {
     "code": "TTB",
@@ -1271,14 +1271,14 @@
     "name": "U.S. Citizenship and Immigration Services",
     "description": null,
     "website": "http://www.uscis.gov/",
-    "favicon": "https://www.uscis.gov/favicon.ico"
+    "favicon": null
   },
   {
     "code": "USDA",
     "name": "Department of Agriculture",
     "description": "Providing leadership on food, agriculture, natural resources, and related issues.",
     "website": "https://www.usda.gov/",
-    "favicon": null
+    "favicon": "https://www.google.com/s2/favicons?domain=www.usda.gov&sz=128"
   },
   {
     "code": "USDAIG",
@@ -1292,7 +1292,7 @@
     "name": "U. S. Geological Survey",
     "description": null,
     "website": "https://www.usgs.gov/",
-    "favicon": "https://www.usgs.gov/themes/custom/usgs_tantalum/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.usgs.gov&sz=128"
   },
   {
     "code": "USMINT",
@@ -1327,14 +1327,14 @@
     "name": "Department of Veterans Affairs",
     "description": null,
     "website": "https://www.va.gov/",
-    "favicon": "https://s3-us-gov-west-1.amazonaws.com/content.www.va.gov/img/design/icons/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.va.gov&sz=128"
   },
   {
     "code": "VETS",
     "name": "Veterans Employment and Training Service",
     "description": null,
     "website": "https://www.dol.gov/agencies/vets",
-    "favicon": "https://www.dol.gov/themes/opa_theme/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.dol.gov&sz=128"
   },
   {
     "code": "WAPA",
@@ -1355,6 +1355,6 @@
     "name": "Wage and Hour Division",
     "description": null,
     "website": "https://www.dol.gov/agencies/whd",
-    "favicon": "https://www.dol.gov/themes/opa_theme/favicon.ico"
+    "favicon": "https://www.google.com/s2/favicons?domain=www.dol.gov&sz=128"
   }
 ]

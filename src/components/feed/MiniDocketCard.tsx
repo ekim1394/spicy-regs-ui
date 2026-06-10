@@ -8,6 +8,11 @@ interface MiniDocketCardProps {
   docket: Docket;
 }
 
+/**
+ * Quiet related-docket row for the docket-page rail: borderless, muted, and
+ * secondary — a discovery aside, not a stack of cards competing with the
+ * docket's own content. The title lifts to full foreground only on hover.
+ */
 export function MiniDocketCard({ docket }: MiniDocketCardProps) {
   const agency = getAgencyInfo(docket.agencyCode);
   const href = `/sr/${docket.agencyCode}/${encodeURIComponent(docket.docketId)}`;
@@ -15,16 +20,15 @@ export function MiniDocketCard({ docket }: MiniDocketCardProps) {
   return (
     <Link
       href={href}
-      className="block rounded-lg border border-[var(--border)] bg-[var(--surface)] p-3 hover:border-[var(--accent-primary)] transition-colors min-w-0"
+      className="group block min-w-0 -mx-2 rounded-md px-2 py-1.5 transition-colors hover:bg-[var(--surface-elevated)]"
     >
-      <div className="flex items-center gap-2 text-xs mb-1.5">
-        <span className="font-semibold" style={{ color: agency.color }}>
+      <div className="flex items-center gap-1.5 text-[11px] mb-0.5">
+        <span className="font-medium" style={{ color: agency.color }}>
           sr/{docket.agencyCode}
         </span>
-        <span className="text-[var(--muted)]">·</span>
-        <span className="font-mono-id text-[var(--muted)] truncate">{docket.docketId}</span>
+        <span className="font-mono-id text-[var(--muted-foreground)] truncate">{docket.docketId}</span>
       </div>
-      <p className="text-sm font-medium text-[var(--foreground)] leading-snug line-clamp-3">
+      <p className="text-xs text-[var(--muted)] leading-snug line-clamp-2 transition-colors group-hover:text-[var(--foreground)]">
         {docket.title}
       </p>
     </Link>

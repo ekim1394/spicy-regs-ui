@@ -3,57 +3,31 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import {
-  ExternalLink,
   MessageSquare,
   FileText,
   Paperclip,
-  ChevronDown,
-  ChevronUp,
   Download,
-  Clock,
 } from 'lucide-react';
 import { getAgencyInfo, timeAgo, formatCount } from '@/lib/agencyMetadata';
+import { stripQuotes, decodeHtml, parseRawJson } from '@/lib/utils/fieldFormat';
+import { Card } from '@/components/ui/Card';
+import { Badge } from '@/components/ui/Badge';
+import { StatusTag } from '@/components/ui/StatusTag';
 
 interface DocketPostProps {
   item: Record<string, any>;
   commentCount?: number;
   documentCount?: number;
-  /** If true, we're on the detail page — don't render title as link */
-  isDetailView?: boolean;
-  showComments?: boolean;
-}
-
-function stripQuotes(s: any): string {
-  if (!s) return '';
-  return String(s).replace(/^"|"$/g, '');
-}
-
-function decodeHtml(s: string): string {
-  const doc = typeof document !== 'undefined'
-    ? new DOMParser().parseFromString(s, 'text/html')
-    : null;
-  return doc?.documentElement.textContent || s;
-}
-
-function parseRawJson(item: Record<string, any>) {
-  try {
-    const raw = typeof item.raw_json === 'string' ? JSON.parse(item.raw_json) : item.raw_json;
-    return raw?.data?.attributes || raw?.data || {};
-  } catch {
-    return {};
-  }
 }
 
 export function DocketPost({
   item,
   commentCount = 0,
   documentCount = 0,
-  isDetailView = false,
-  showComments = false,
 }: DocketPostProps) {
   const [expanded, setExpanded] = useState(false);
 
-  const attrs = useMemo(() => parseRawJson(item), [item]);
+  const attrs = useMemo(() => parseRawJson(item.raw_json), [item]);
 
   const docketId = stripQuotes(item.docket_id) || '';
   const agencyCode = stripQuotes(item.agency_code) || docketId.split('-')[0] || '';
@@ -78,16 +52,6 @@ export function DocketPost({
   const isRecentlyClosed =
     daysSinceClosed !== null && daysSinceClosed >= 0 && daysSinceClosed <= RECENTLY_CLOSED_DAYS;
 
-  // Urgency color for comment deadline
-  const getDeadlineUrgency = (endDate: string) => {
-    const daysLeft = Math.ceil(
-      (new Date(endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-    );
-    if (daysLeft < 3) return { color: 'var(--accent-red, #dc2626)', label: `${daysLeft}d left` };
-    if (daysLeft < 14) return { color: 'var(--accent-amber, #d97706)', label: `${daysLeft}d left` };
-    return { color: 'var(--accent-green)', label: `${daysLeft}d left` };
-  };
-
   // Attachments from documents
   const attachments = useMemo(() => {
     const fileUrl = stripQuotes(item.file_url);
@@ -99,75 +63,49 @@ export function DocketPost({
     return [{ name: fileName, url: fileUrl, type: ext }];
   }, [item]);
 
-  const regsDotGovUrl = `https://www.regulations.gov/docket/${docketId}`;
-
   return (
-    <article className="docket-post">
-      <div className="p-5">
+    <Card asChild variant="post">
+      <article>
+      <div className="p-5 pb-4">
         {/* Header: Agency + Title */}
         <div className="flex items-start gap-3 mb-3">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 text-sm mb-1">
+            {/* Metadata line — one consistent treatment (sans, text-xs, muted);
+                the agency's brand color is the only differentiator since it's
+                the link/anchor. Docket type sits here too: it's categorical
+                metadata, not a time-sensitive signal. */}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs mb-1">
               <Link
                 href={`/sr/${agencyCode}`}
-                className="font-semibold hover:underline"
+                className="font-medium hover:underline"
                 style={{ color: agency.color }}
               >
                 sr/{agencyCode}
               </Link>
               <span className="text-[var(--muted)]">·</span>
-              <span className="font-mono-id text-[var(--muted)]">{docketId}</span>
+              <span className="text-[var(--muted)]">{docketId}</span>
+              {docketType && (
+                <>
+                  <span className="text-[var(--muted)]">·</span>
+                  <span className="text-[var(--muted)]">{docketType}</span>
+                </>
+              )}
               {(dateCreated || modifyDate) && (
                 <>
                   <span className="text-[var(--muted)]">·</span>
-                  <span className="text-[var(--muted)] text-xs">
+                  <span className="text-[var(--muted)]">
                     {dateCreated ? timeAgo(dateCreated) : timeAgo(modifyDate)}
                   </span>
                 </>
               )}
             </div>
 
-            {isDetailView ? (
-              <h3 className="text-lg font-semibold text-[var(--foreground)] leading-snug">
-                {title}
-              </h3>
-            ) : (
-              <Link
-                href={`/sr/${agencyCode}/${encodeURIComponent(docketId)}`}
-                className="text-lg font-semibold text-[var(--foreground)] leading-snug hover:text-[var(--accent-primary)] transition-colors block"
-              >
-                {title}
-              </Link>
-            )}
-
-            {/* Badges */}
-            <div className="flex items-center gap-2 mt-1.5">
-              {docketType && (
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[var(--surface-elevated)] text-[var(--muted)]">
-                  {docketType}
-                </span>
-              )}
-              {isOpenForComment && commentEndDate && (() => {
-                const urgency = getDeadlineUrgency(commentEndDate);
-                return (
-                  <span
-                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium"
-                    style={{ backgroundColor: `${urgency.color}15`, color: urgency.color }}
-                  >
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: urgency.color }} />
-                    Open for Comment · {urgency.label}
-                  </span>
-                );
-              })()}
-              {!isOpenForComment && isRecentlyClosed && daysSinceClosed !== null && (
-                <span
-                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-[var(--surface-elevated)] text-[var(--muted)]"
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-[var(--muted)]" />
-                  Recently Closed · {daysSinceClosed === 0 ? 'today' : `${daysSinceClosed}d ago`}
-                </span>
-              )}
-            </div>
+            <Link
+              href={`/sr/${agencyCode}/${encodeURIComponent(docketId)}`}
+              className="text-lg font-semibold text-[var(--foreground)] leading-snug hover:text-[var(--accent-primary)] transition-colors block"
+            >
+              {title}
+            </Link>
           </div>
         </div>
 
@@ -212,57 +150,42 @@ export function DocketPost({
           </div>
         )}
 
-        {/* Metadata Row */}
-        <div className="flex items-center gap-4 mt-4 text-xs text-[var(--muted)]">
+        {/* Footer — engagement on the left (icon sits flush with the title and
+            abstract above it), current lifecycle state on the right. All the
+            identity metadata lives in the single line at the top, so this row
+            carries only state + engagement: no second metadata block wedged
+            against the title. */}
+        <div className="flex items-center gap-3 mt-4 pt-3 border-t border-[var(--border)]">
+          <Link
+            href={`/sr/${agencyCode}/${encodeURIComponent(docketId)}`}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--muted)] hover:text-[var(--accent-primary)] transition-colors"
+          >
+            <MessageSquare size={15} />
+            {commentCount > 0 ? `${formatCount(commentCount)} comments` : 'Comments'}
+          </Link>
+
           {documentCount > 0 && (
             <span className="metadata-pill">
               <FileText size={12} />
               {formatCount(documentCount)} docs
             </span>
           )}
-          {commentCount > 0 && (
-            <span className="metadata-pill">
-              <MessageSquare size={12} />
-              {formatCount(commentCount)} comments
-            </span>
-          )}
-          {dateCreated && (
-            <span className="metadata-pill">
-              <Clock size={12} />
-              Created {timeAgo(dateCreated)}
-            </span>
-          )}
-          {modifyDate && (
-            <span className="metadata-pill">
-              <Clock size={12} />
-              Modified {timeAgo(modifyDate)}
-            </span>
-          )}
-        </div>
 
-        {/* Action Bar */}
-        <div className="flex items-center gap-1 mt-3 pt-3 border-t border-[var(--border)]">
-          {!isDetailView && (
-            <Link
-              href={`/sr/${agencyCode}/${encodeURIComponent(docketId)}`}
-              className="action-btn"
-            >
-              <MessageSquare size={16} />
-              {commentCount > 0 ? `${formatCount(commentCount)} Comments` : 'Comments'}
-            </Link>
-          )}
-
-          <a
-            href={regsDotGovUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="action-btn ml-auto"
-          >
-            <ExternalLink size={14} />
-            regulations.gov
-          </a>
+          {isOpenForComment && commentEndDate ? (
+            <span className="ml-auto inline-flex items-center gap-1.5">
+              <span className="text-xs font-medium text-[var(--muted)]">Open for Comment ·</span>
+              <StatusTag commentEndDate={commentEndDate} />
+            </span>
+          ) : isRecentlyClosed && daysSinceClosed !== null ? (
+            <span className="ml-auto">
+              <Badge dot>
+                Recently Closed · {daysSinceClosed === 0 ? 'today' : `${daysSinceClosed}d ago`}
+              </Badge>
+            </span>
+          ) : null}
         </div>
       </div>
-    </article>
+      </article>
+    </Card>
   );
 }

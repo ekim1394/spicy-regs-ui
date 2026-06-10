@@ -1,5 +1,20 @@
-@import url('https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap');
 @import "tailwindcss";
+
+/* ─── Radius scale ─── the single source of truth for BOTH the Tailwind radius
+   utilities (rounded-xs/sm/md/lg) and the component CSS below (var(--radius-md)).
+   Declared in @theme — not :root — so Tailwind GENERATES the utilities from these
+   exact values instead of its stock scale: `rounded-md` is provably 12px, by
+   design, not a coincidence of the cascade. `--radius-*: initial` clears
+   Tailwind's defaults so ONLY this ladder exists — no stray rounded-xl/2xl that
+   silently alias `rounded-md`. (`rounded-full` is a static utility and is
+   unaffected.) Pills/avatars use `rounded-full` directly. */
+@theme {
+  --radius-*: initial;
+  --radius-xs: 6px;    /* badges, small pills           */
+  --radius-sm: 10px;   /* buttons, attachments          */
+  --radius-md: 12px;   /* default .card, popover-surface */
+  --radius-lg: 16px;   /* posts, feature tiles, banners  */
+}
 
 /* Hide scrollbars but keep scrolling */
 * {
@@ -9,43 +24,83 @@
   display: none; /* Chrome, Safari, Edge */
 }
 
-/* ─── OpenPolicy-Inspired Design Tokens ─── */
+/* ─── Prussian-Blue Design Tokens ─── */
 :root {
-  --background: #eef0ff;
-  --foreground: #1a1a2e;
-  --accent-primary: #3B28F6;
-  --accent-secondary: #5b4cf7;
-  --accent-green: #16a34a;
-  --accent-amber: #d97706;
-  --accent-red: #dc2626;
+  --background: oklch(0.975 0.007 250);     /* cool prussian paper */
+  --foreground: oklch(0.21 0.030 256);      /* deep navy-blue ink */
+  --accent-primary: oklch(0.45 0.125 254);  /* prussian blue — THE brand color (≈ #185598) */
+  --accent-primary-soft: color-mix(in srgb, var(--accent-primary) 14%, transparent);
+  --accent-secondary: oklch(0.52 0.120 254); /* primary HOVER step only (not a brand color) */
+  /* The true secondary: a warm "spice" clay echoing the flame mark. Emphasis
+     ONLY — a callout rule, a single key number — never a fill competing with
+     the primary. */
+  --accent-emphasis: #d8653b;
+  --accent-emphasis-soft: rgba(216, 101, 59, 0.15);
+  /* Semantics — muted (oklch, chroma ×0.7) so they read as quiet accents
+     against the cool prussian field, never as fills. */
+  --accent-green: oklch(0.58 0.074 150);  /* "open" / positive            */
+  --accent-amber: oklch(0.66 0.067 68);   /* "demo" / experimental — clay */
+  --accent-red: oklch(0.56 0.098 27);     /* urgency / error              */
   --surface: #ffffff;
-  --surface-elevated: #f4f5ff;
-  --border: #c7caef;
-  --border-subtle: #dde0f5;
-  --muted: #6b7094;
-  --muted-foreground: #8b90b3;
+  --surface-elevated: oklch(0.97 0.008 250);   /* prussian-toned */
+  --surface-raised: oklch(0.925 0.012 250);    /* prussian-toned */
+  --border: oklch(0.885 0.013 250);        /* prussian-toned */
+  --border-subtle: oklch(0.93 0.009 250);  /* prussian-toned */
+  --muted: oklch(0.50 0.025 256);          /* prussian-toned */
+  --muted-foreground: oklch(0.63 0.024 256); /* prussian-toned */
 
-  /* Agency Color System */
-  --agency-epa: #16a34a;
-  --agency-fda: #2563eb;
-  --agency-fcc: #7c3aed;
-  --agency-dot: #ea580c;
-  --agency-sec: #1d4ed8;
-  --agency-usda: #a16207;
-  --agency-doe: #ca8a04;
-  --agency-hhs: #dc2626;
-  --agency-dhs: #0284c7;
-  --agency-doj: #b91c1c;
-  --agency-dod: #475569;
-  --agency-hud: #0891b2;
-  --agency-ed: #7c3aed;
-  --agency-noaa: #0369a1;
-  --agency-default: #3B28F6;
+  /* Agency Color System — a harmonised oklch family re-keyed to the prussian
+     blue: lightness held in a tight 0.46–0.60 band, chroma clamped low
+     (≈0.05–0.08), only the HUE rotates — biased toward the blue half so a
+     dozen colors read as one designed set, in key with the prussian. The two
+     former violets (FCC/ED) pull in toward blue-violet so nothing reads as
+     the old "AI purple". */
+  --agency-epa:  oklch(0.54 0.060 160);  /* green       */
+  --agency-fda:  oklch(0.50 0.072 250);  /* blue        */
+  --agency-fcc:  oklch(0.52 0.066 282);  /* blue-violet */
+  --agency-dot:  oklch(0.58 0.062 54);   /* clay        */
+  --agency-sec:  oklch(0.46 0.075 254);  /* deep blue   */
+  --agency-usda: oklch(0.56 0.050 84);   /* olive       */
+  --agency-doe:  oklch(0.60 0.052 88);   /* muted gold  */
+  --agency-hhs:  oklch(0.53 0.078 27);   /* red         */
+  --agency-dhs:  oklch(0.54 0.062 232);  /* sky         */
+  --agency-doj:  oklch(0.47 0.075 25);   /* deep red    */
+  --agency-dod:  oklch(0.50 0.022 258);  /* slate       */
+  --agency-hud:  oklch(0.55 0.052 208);  /* teal        */
+  --agency-ed:   oklch(0.53 0.064 284);  /* blue-violet */
+  --agency-noaa: oklch(0.49 0.066 240);  /* deep sky    */
+  --agency-default: var(--accent-primary);
 
-  /* Typography */
-  --font-heading: 'EB Garamond', 'Georgia', 'Times New Roman', serif;
-  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: 'Fira Code', ui-monospace, monospace;
+  /* Partisan signifiers, kept deliberately outside the prussian brand family:
+     a stock political blue and red used only to shade administration eras in
+     the Lab activity charts. Space-separated RGB channels so call sites set
+     their own alpha. Excluded from any indigo literal sweep. */
+  --party-dem: 37 99 235;
+  --party-gop: 220 38 38;
+
+  /* Typography — primary families are set by next/font on <html>
+     (see src/app/layout.tsx); these tokens add the fallback stack. */
+  --font-heading: var(--font-eb-garamond), 'Georgia', 'Times New Roman', serif;
+  --font-body: var(--font-inter), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: var(--font-fira-code), ui-monospace, monospace;
+
+  /* Type scale (px @ 16px root). DISPLAY titles (hero, h1, h2) render in the
+     serif; everything else — h3, ledes, body, metadata — is Inter. */
+  --text-hero: 3rem;       /* 48px — home hero wordmark        */
+  --text-h1: 2.25rem;      /* 36px — page titles              */
+  --text-h2: 1.5rem;       /* 24px — section / panel titles   */
+  --text-h3: 1.125rem;     /* 18px — card / docket titles     */
+  --text-body: 1rem;       /* 16px — lede / subcopy           */
+  --text-sm: 0.875rem;     /* 14px — default body             */
+  --text-xs: 0.8125rem;    /* 13px — chips, action buttons    */
+  --text-2xs: 0.75rem;     /* 12px — metadata pills, mono IDs */
+  --text-micro: 0.6875rem; /* 11px — uppercase eyebrows       */
+  --text-nano: 0.625rem;   /* 10px — badge text, initials     */
+
+  /* Elevation — scarce, always prussian-tinted, interaction only */
+  --shadow-pop: 0 4px 20px color-mix(in srgb, var(--accent-primary) 13%, transparent);   /* popover / hovered post */
+  --shadow-btn: 0 4px 12px color-mix(in srgb, var(--accent-primary) 28%, transparent);   /* primary button hover   */
+  --shadow-glow: 0 0 40px color-mix(in srgb, var(--accent-primary) 9%, transparent);     /* ambient hero glow      */
 }
 
 body {
@@ -64,11 +119,22 @@ html {
 }
 
 /* ─── Typography ─── */
-h1, h2, h3 {
+/* Serif is reserved for DISPLAY titles only — the wordmark, page titles (h1)
+   and panel titles (h2). h3 and below are functional UI text in the sans
+   (Inter): one serif, used on purpose, never trading blows with the body at
+   small sizes. */
+h1, h2 {
   font-family: var(--font-heading);
   font-weight: 600;
   color: var(--foreground);
   letter-spacing: -0.01em;
+}
+
+h3 {
+  font-family: var(--font-body);
+  font-weight: 600;
+  color: var(--foreground);
+  letter-spacing: -0.005em;
 }
 
 .font-mono-id {
@@ -81,55 +147,61 @@ h1, h2, h3 {
   font-family: var(--font-heading);
 }
 
-/* ─── Gradient Utilities ─── */
+/* ─── Brand wordmark ─── flat prussian blue in the serif. Holding the mark
+   to the single brand color (not a gradient) is the core of the refinement:
+   the prussian (oklch 0.45 0.125 254, ≈#185598) carries all the energy,
+   everything else stays quiet. The old indigo→lilac→"AI purple" gradient was
+   retired. */
 .gradient-text {
-  background: linear-gradient(135deg, #3B28F6 0%, #5b4cf7 50%, #8b5cf6 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--accent-primary);
+  font-family: var(--font-heading);
+  font-weight: 700;
 }
 
-/* ─── Card Styles ─── */
-.card-gradient {
+/* ─── Card ─── the single surface primitive.
+   ONE card. `.card-lg` only bumps the radius (feed posts, feature tiles, Lab
+   panels). Hover lifts the border to the accent + a soft prussian shadow.
+   Separation comes from the neutral border; the accent is reserved to mean
+   "action", not chrome. */
+.card {
   background: var(--surface);
-  border: 2px solid var(--border);
-  border-radius: 16px;
-  position: relative;
-}
-
-.card-gradient::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 16px;
-  padding: 1px;
-  background: linear-gradient(135deg, rgba(59, 40, 246, 0.2), rgba(91, 76, 247, 0.05));
-  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
-
-/* ─── Docket Post Card ─── */
-.docket-post {
-  background: var(--surface);
-  border: 2px solid var(--accent-primary);
-  border-radius: 16px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-.docket-post:hover {
-  border-color: var(--accent-secondary);
-  box-shadow: 0 4px 20px rgba(59, 40, 246, 0.1);
+.card:hover {
+  border-color: var(--accent-primary);
+  box-shadow: var(--shadow-pop);
 }
 
-/* Serif heading override for docket titles */
-.docket-post h3,
-.docket-post a.text-lg {
-  font-family: var(--font-heading);
-  font-weight: 600;
-  letter-spacing: -0.01em;
+/* Non-interactive surface — the same chrome as `.card` minus the hover lift.
+   For static content panels (summaries, timelines, the docket header, table
+   shells) where an accent-border-on-hover would falsely signal a click
+   target. Pair with `<Card interactive={false}>`. `.card-lg` still bumps the
+   radius on top of either base. */
+.card-static {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.card-lg {
+  border-radius: var(--radius-lg);
+}
+
+/* ─── Popover Surface ─── the single floating-menu chrome: dropdown menus,
+   select popovers, the search-suggestions panel, the simulated-data tooltip.
+   Surface bg, a subtle border, a 12px radius, and the prussian pop shadow
+   (--shadow-pop) — so everything that floats over the page reads as one
+   object. Positioning (absolute/portal), width, and z-index stay at the call
+   site; this owns only the surface treatment. */
+.popover-surface {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-pop);
+  overflow: hidden;
 }
 
 /* ─── Agency Avatar ─── */
@@ -163,31 +235,10 @@ h1, h2, h3 {
 }
 
 /* ─── Document List ─── */
-.document-list {
-  background: var(--surface);
-  border: 2px solid var(--border);
-  border-radius: 16px;
-  padding: 1.25rem;
-}
-
-.document-list .section-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-family: var(--font-heading);
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--foreground);
-  margin-bottom: 1rem;
-  padding-bottom: 0.75rem;
-  border-bottom: 2px solid var(--accent-primary);
-}
-
 .document-card {
   padding: 0.875rem 1rem;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   border: 1.5px solid var(--border);
-  border-left: 3px solid var(--accent-primary);
   background: var(--surface);
   transition: border-color 0.15s ease, background 0.15s ease;
 }
@@ -205,7 +256,9 @@ h1, h2, h3 {
 
 .thread-line {
   position: absolute;
-  left: 0.875rem;
+  /* Centered on the avatar: comment-thread padding-left (1.25rem) + half the
+     28px sm avatar (0.875rem) = 2.125rem center, minus half the 2px line. */
+  left: calc(2.125rem - 1px);
   top: 2.5rem;
   bottom: 0;
   width: 2px;
@@ -276,7 +329,7 @@ h1, h2, h3 {
 
 .attachment-link:hover {
   border-color: var(--accent-primary);
-  background: rgba(59, 40, 246, 0.05);
+  background: color-mix(in srgb, var(--accent-primary) 5%, transparent);
 }
 
 /* ─── Metadata Pill ─── */
@@ -346,12 +399,29 @@ h1, h2, h3 {
 .btn-primary:hover {
   background: var(--accent-secondary);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(59, 40, 246, 0.25);
+  box-shadow: var(--shadow-btn);
+}
+
+/* Secondary button — bordered, neutral fill. The quiet companion to
+   .btn-primary; lifts its border to the accent on hover the same way `.card`
+   does. Pair with `<Button variant="secondary">`. */
+.btn-secondary {
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  transition: all 0.2s;
+}
+
+.btn-secondary:hover {
+  border-color: var(--accent-primary);
+  background: var(--surface-elevated);
 }
 
 /* ─── Glow Effect ─── */
 .glow {
-  box-shadow: 0 0 40px rgba(59, 40, 246, 0.08);
+  box-shadow: var(--shadow-glow);
 }
 
 /* ─── Reduced Motion ─── */

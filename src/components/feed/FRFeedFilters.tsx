@@ -1,6 +1,8 @@
 'use client';
 
-import { ChevronDown, X } from 'lucide-react';
+import { useMemo } from 'react';
+import { X } from 'lucide-react';
+import { FilterSelect } from '@/components/ui/FilterSelect';
 import type {
   FRDateRange,
   FRDocumentTypeFilter,
@@ -18,20 +20,20 @@ interface FRFeedFiltersProps {
   onAgencySlugChange: (s: string) => void;
 }
 
-const DOC_TYPE_OPTIONS: { key: FRDocumentTypeFilter; label: string }[] = [
-  { key: '', label: 'All types' },
-  { key: 'Rule', label: 'Rule' },
-  { key: 'Proposed Rule', label: 'Proposed Rule' },
-  { key: 'Notice', label: 'Notice' },
-  { key: 'Presidential Document', label: 'Presidential' },
+const DOC_TYPE_OPTIONS: { value: FRDocumentTypeFilter; label: string }[] = [
+  { value: '', label: 'All types' },
+  { value: 'Rule', label: 'Rule' },
+  { value: 'Proposed Rule', label: 'Proposed Rule' },
+  { value: 'Notice', label: 'Notice' },
+  { value: 'Presidential Document', label: 'Presidential' },
 ];
 
-const DATE_OPTIONS: { key: FRDateRange; label: string }[] = [
-  { key: '', label: 'All time' },
-  { key: '7d', label: 'Last 7 days' },
-  { key: '30d', label: 'Last 30 days' },
-  { key: '90d', label: 'Last 90 days' },
-  { key: '365d', label: 'Last year' },
+const DATE_OPTIONS: { value: FRDateRange; label: string }[] = [
+  { value: '', label: 'All time' },
+  { value: '7d', label: 'Last 7 days' },
+  { value: '30d', label: 'Last 30 days' },
+  { value: '90d', label: 'Last 90 days' },
+  { value: '365d', label: 'Last year' },
 ];
 
 const SORT_CHIPS: { key: FRSort; label: string }[] = [
@@ -56,45 +58,31 @@ export function FRFeedFilters({
   agencySlug,
   onAgencySlugChange,
 }: FRFeedFiltersProps) {
+  // Options are static, but useMemo keeps the reference stable so the
+  // Radix-backed FilterSelect doesn't see a fresh array each render.
+  const docTypeOptions = useMemo(() => DOC_TYPE_OPTIONS, []);
+  const dateOptions = useMemo(() => DATE_OPTIONS, []);
+
   return (
     <div className="flex flex-col gap-3">
       {/* Row 1: dropdowns + agency text input */}
       <div className="flex items-center gap-3 flex-wrap">
-        {/* Document Type */}
-        <div className="relative">
-          <ChevronDown
-            size={14}
-            className="text-[var(--muted)] pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
-          />
-          <select
-            value={documentType}
-            onChange={(e) => onDocumentTypeChange(e.target.value as FRDocumentTypeFilter)}
-            className="filter-chip appearance-none pr-7 cursor-pointer bg-[var(--surface)] text-[var(--foreground)] border-none focus:outline-none"
-          >
-            {DOC_TYPE_OPTIONS.map((opt) => (
-              <option key={opt.key} value={opt.key}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
+        <FilterSelect<FRDocumentTypeFilter>
+          value={documentType}
+          onValueChange={onDocumentTypeChange}
+          options={docTypeOptions}
+          ariaLabel="Filter by document type"
+        />
 
-        {/* Date Range */}
-        <div className="relative">
-          <ChevronDown
-            size={14}
-            className="text-[var(--muted)] pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
-          />
-          <select
-            value={dateRange}
-            onChange={(e) => onDateRangeChange(e.target.value as FRDateRange)}
-            className="filter-chip appearance-none pr-7 cursor-pointer bg-[var(--surface)] text-[var(--foreground)] border-none focus:outline-none"
-          >
-            {DATE_OPTIONS.map((opt) => (
-              <option key={opt.key} value={opt.key}>{opt.label}</option>
-            ))}
-          </select>
-        </div>
+        <FilterSelect<FRDateRange>
+          value={dateRange}
+          onValueChange={onDateRangeChange}
+          options={dateOptions}
+          ariaLabel="Filter by date range"
+        />
 
-        {/* Agency slug text input */}
+        {/* Agency slug text input — FR has hundreds of slugs and no curated
+            list, so a select doesn't fit; users type a substring. */}
         <div className="relative flex items-center">
           <input
             type="text"

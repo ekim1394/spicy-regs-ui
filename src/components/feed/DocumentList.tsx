@@ -1,45 +1,42 @@
 'use client';
 
-import { FileText, Download, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
+import { Download } from 'lucide-react';
 import { timeAgo } from '@/lib/agencyMetadata';
-
-/** Strip wrapping quotes from Parquet string values */
-function stripQuotes(s: any): string {
-  if (s == null) return '';
-  return String(s).replace(/^"|"$/g, '');
-}
+import { daysUntil, deadlineLevel, DEADLINE_COLOR_VAR } from '@/lib/deadline';
+import { stripQuotes } from '@/lib/utils/fieldFormat';
+import { Badge } from '@/components/ui/Badge';
 
 interface DocumentListProps {
   documents: any[];
   loading?: boolean;
+  /**
+   * When provided, each document title links to its Document page at
+   * /sr/{agencyCode}/{docketId}/{documentId}. Omit to render plain titles.
+   */
+  agencyCode?: string;
+  docketId?: string;
 }
 
-export function DocumentList({ documents, loading = false }: DocumentListProps) {
+export function DocumentList({ documents, loading = false, agencyCode, docketId }: DocumentListProps) {
   if (loading) {
     return (
-      <div className="document-list">
-        <h3 className="section-title">
-          <FileText size={16} />
-          Documents
-        </h3>
-        <div className="flex justify-center py-8 text-sm text-[var(--muted)]">
-          Loading documents...
-        </div>
+      <div className="flex justify-center py-8 text-sm text-[var(--muted)]">
+        Loading documents...
       </div>
     );
   }
 
   if (documents.length === 0) {
-    return null;
+    return (
+      <p className="text-sm text-[var(--muted)] py-4 text-center">
+        No documents found for this docket.
+      </p>
+    );
   }
 
   return (
-    <div className="document-list">
-      <h3 className="section-title">
-        <FileText size={16} />
-        Documents ({documents.length})
-      </h3>
-      <div className="space-y-2">
+    <div className="space-y-2">
         {documents.map((doc, i) => {
           const docId = stripQuotes(doc.document_id);
           const title = stripQuotes(doc.title) || docId;
@@ -52,15 +49,8 @@ export function DocumentList({ documents, loading = false }: DocumentListProps) 
             ? new Date(commentEndDate) > new Date()
             : false;
 
-          const daysLeft = commentEndDate
-            ? Math.ceil((new Date(commentEndDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-            : 0;
-
-          const getUrgencyColor = () => {
-            if (daysLeft < 3) return 'var(--accent-red, #dc2626)';
-            if (daysLeft < 14) return 'var(--accent-amber, #d97706)';
-            return 'var(--accent-green)';
-          };
+          const daysLeft = daysUntil(commentEndDate || null) ?? 0;
+          const urgencyColor = DEADLINE_COLOR_VAR[deadlineLevel(daysLeft)];
 
           return (
             <div key={docId || i} className="document-card">
@@ -69,28 +59,33 @@ export function DocumentList({ documents, loading = false }: DocumentListProps) 
                   {/* Document ID and type */}
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-mono-id text-[var(--muted)] text-xs">{docId}</span>
-                    {docType && (
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[var(--surface-elevated)] text-[var(--muted)]">
-                        {docType}
-                      </span>
-                    )}
+                    {docType && <Badge variant="neutral" size="xs">{docType}</Badge>}
                   </div>
 
                   {/* Title */}
-                  <p className="text-sm font-medium text-[var(--foreground)] leading-snug">
-                    {title}
-                  </p>
+                  {agencyCode && docketId ? (
+                    <Link
+                      href={`/sr/${agencyCode}/${encodeURIComponent(docketId)}/${encodeURIComponent(docId)}`}
+                      className="text-sm font-medium text-[var(--foreground)] leading-snug hover:text-[var(--accent-primary)] transition-colors"
+                    >
+                      {title}
+                    </Link>
+                  ) : (
+                    <p className="text-sm font-medium text-[var(--foreground)] leading-snug">
+                      {title}
+                    </p>
+                  )}
 
                   {/* Comment period / posted date */}
                   <div className="flex items-center gap-2 mt-1.5">
                     {isOpenForComment && commentEndDate ? (
                       <span
                         className="inline-flex items-center gap-1 text-xs font-medium"
-                        style={{ color: getUrgencyColor() }}
+                        style={{ color: urgencyColor }}
                       >
                         <span
                           className="w-1.5 h-1.5 rounded-full"
-                          style={{ backgroundColor: getUrgencyColor() }}
+                          style={{ backgroundColor: urgencyColor }}
                         />
                         Open for Comment · {daysLeft}d left · Closes{' '}
                         {new Date(commentEndDate).toLocaleDateString()}
@@ -126,7 +121,6 @@ export function DocumentList({ documents, loading = false }: DocumentListProps) 
             </div>
           );
         })}
-      </div>
     </div>
   );
 }

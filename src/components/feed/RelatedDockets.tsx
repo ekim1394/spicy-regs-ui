@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo } from 'react';
 import { useDocketSearch } from '@/lib/search/useDocketSearch';
+import { SectionLabel } from '@/components/ui/SectionLabel';
 import { MiniDocketCard } from './MiniDocketCard';
 
 const RELATED_LIMIT = 3;
@@ -76,11 +77,9 @@ export function RelatedDockets({ docketId, title }: RelatedDocketsProps) {
   if (status === 'error' || related.length === 0) return null;
 
   return (
-    <section className="mt-4">
-      <h3 className="text-sm font-semibold text-[var(--muted)] mb-2 px-1">
-        Related Dockets
-      </h3>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+    <section>
+      <SectionLabel label="Related dockets" caption={related.length} className="mb-2" />
+      <div className="flex flex-col gap-2">
         {related.map(d => (
           <MiniDocketCard key={d.docketId} docket={d} />
         ))}

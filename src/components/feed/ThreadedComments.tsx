@@ -1,25 +1,17 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
-import { Link2, ChevronDown, Loader2, FileText, Download } from 'lucide-react';
-import { stringToColor, getInitials, timeAgo } from '@/lib/agencyMetadata';
+import { useState, useCallback, useEffect, memo } from 'react';
+import { Virtuoso } from 'react-virtuoso';
+import { Link2, Loader2, FileText, Download } from 'lucide-react';
+import { timeAgo } from '@/lib/agencyMetadata';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
+import { stripQuotes, decodeHtml } from '@/lib/utils/fieldFormat';
+import { Avatar } from '@/components/ui/Avatar';
+import { Badge } from '@/components/ui/Badge';
 
 interface ThreadedCommentsProps {
   docketId: string;
   modifyDate?: string;
-}
-
-function stripQuotes(s: any): string {
-  if (!s) return '';
-  return String(s).replace(/^"|"$/g, '');
-}
-
-function decodeHtml(s: string): string {
-  const doc = typeof document !== 'undefined'
-    ? new DOMParser().parseFromString(s, 'text/html')
-    : null;
-  return doc?.documentElement.textContent || s;
 }
 
 function parseCommentData(item: Record<string, any>) {
@@ -76,7 +68,7 @@ interface CommentItemData {
   attachments: { name: string; url: string; format: string }[];
 }
 
-function CommentItem({ data }: { data: CommentItemData }) {
+const CommentItem = memo(function CommentItem({ data }: { data: CommentItemData }) {
   const [expanded, setExpanded] = useState(false);
 
   const authorName = data.organization
@@ -85,8 +77,6 @@ function CommentItem({ data }: { data: CommentItemData }) {
     || 'Anonymous';
 
   const isOrg = !!data.organization;
-  const avatarColor = stringToColor(authorName);
-  const initials = getInitials(authorName);
   const commentText = data.comment || data.title;
   const truncateLength = 400;
   const needsTruncation = commentText.length > truncateLength;
@@ -100,13 +90,7 @@ function CommentItem({ data }: { data: CommentItemData }) {
       <div className="thread-line" />
 
       <div className="flex items-start gap-2.5">
-        {/* Avatar */}
-        <div
-          className="comment-avatar"
-          style={{ backgroundColor: avatarColor }}
-        >
-          {initials}
-        </div>
+        <Avatar name={authorName} size="sm" />
 
         <div className="flex-1 min-w-0">
           {/* Author Line */}
@@ -114,11 +98,7 @@ function CommentItem({ data }: { data: CommentItemData }) {
             <span className="font-semibold text-[var(--foreground)]">
               {authorName}
             </span>
-            {isOrg && (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-[rgba(99,102,241,0.15)] text-[var(--accent-primary)]">
-                Organization
-              </span>
-            )}
+            {isOrg && <Badge variant="accent" size="xs">Organization</Badge>}
             {data.postedDate && (
               <span className="text-xs text-[var(--muted)]">
                 {timeAgo(data.postedDate)}
@@ -177,7 +157,7 @@ function CommentItem({ data }: { data: CommentItemData }) {
       </div>
     </div>
   );
-}
+});
 
 const PAGE_SIZE = 10;
 
@@ -225,68 +205,58 @@ export function ThreadedComments({ docketId, modifyDate }: ThreadedCommentsProps
   };
 
   return (
-    <div className="border-t border-[var(--border)] bg-[var(--surface-elevated)]">
-      <div className="px-5 py-3">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-sm font-semibold text-[var(--foreground)]">
-            Comments
-          </span>
-          <div className="flex items-center gap-1">
-            <span className="text-xs text-[var(--muted)] mr-1">Sort by:</span>
-            <button
-              onClick={() => handleSortChange('recent')}
-              className={`filter-chip text-xs !px-2 !py-0.5 ${sortBy === 'recent' ? 'filter-chip-active' : ''}`}
-            >
-              Recent
-            </button>
-            <button
-              onClick={() => handleSortChange('oldest')}
-              className={`filter-chip text-xs !px-2 !py-0.5 ${sortBy === 'oldest' ? 'filter-chip-active' : ''}`}
-            >
-              Oldest
-            </button>
-          </div>
-        </div>
-
-        {/* Comment List */}
-        {comments.length === 0 && !loading && (
-          <p className="text-sm text-[var(--muted)] py-4 text-center">
-            No comments found for this docket.
-          </p>
-        )}
-
-        {comments.map((c, i) => (
-          <CommentItem key={`${c.commentId}-${i}`} data={c} />
-        ))}
-
-        {/* Load More */}
-        {hasMore && (
-          <button
-            onClick={() => loadComments(false)}
-            disabled={loading}
-            className="w-full mt-2 py-2 text-sm font-medium text-[var(--accent-primary)] hover:bg-[var(--surface-elevated)] rounded-lg transition-colors flex items-center justify-center gap-2"
-          >
-            {loading ? (
-              <>
-                <Loader2 size={14} className="animate-spin" />
-                Loading...
-              </>
-            ) : (
-              <>
-                <ChevronDown size={14} />
-                Load more comments
-              </>
-            )}
-          </button>
-        )}
-
-        {loading && comments.length === 0 && (
-          <div className="flex justify-center py-6">
-            <Loader2 size={20} className="animate-spin text-[var(--accent-primary)]" />
-          </div>
-        )}
+    <div>
+      {/* Sort control — the section heading itself is supplied by the page's
+          SectionLabel so this tab matches the Overview/Documents panels. */}
+      <div className="flex items-center justify-end gap-1 mb-3">
+        <span className="text-xs text-[var(--muted)] mr-1">Sort by:</span>
+        <button
+          onClick={() => handleSortChange('recent')}
+          className={`filter-chip text-xs !px-2 !py-0.5 ${sortBy === 'recent' ? 'filter-chip-active' : ''}`}
+        >
+          Recent
+        </button>
+        <button
+          onClick={() => handleSortChange('oldest')}
+          className={`filter-chip text-xs !px-2 !py-0.5 ${sortBy === 'oldest' ? 'filter-chip-active' : ''}`}
+        >
+          Oldest
+        </button>
       </div>
+
+      {/* Comment List */}
+      {comments.length === 0 && !loading && (
+        <p className="text-sm text-[var(--muted)] py-4 text-center">
+          No comments found for this docket.
+        </p>
+      )}
+
+      {loading && comments.length === 0 && (
+        <div className="flex justify-center py-6">
+          <Loader2 size={20} className="animate-spin text-[var(--accent-primary)]" />
+        </div>
+      )}
+
+      {/* Virtualized so a high-volume docket keeps only the visible comments in
+          the DOM. Window-scrolled (the page scrolls, not an inner box) and
+          paginates by fetching the next page when the list end is reached. */}
+      {comments.length > 0 && (
+        <Virtuoso
+          useWindowScroll
+          data={comments}
+          computeItemKey={(index, c) => `${c.commentId}-${index}`}
+          endReached={() => { if (hasMore && !loading) loadComments(false); }}
+          itemContent={(_index, c) => <CommentItem data={c} />}
+          components={{
+            Footer: () =>
+              loading ? (
+                <div className="flex justify-center py-6">
+                  <Loader2 size={20} className="animate-spin text-[var(--accent-primary)]" />
+                </div>
+              ) : null,
+          }}
+        />
+      )}
     </div>
   );
 }

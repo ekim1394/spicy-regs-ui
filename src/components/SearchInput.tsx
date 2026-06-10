@@ -209,7 +209,7 @@ export function SearchInput({
         <div
           id="search-dropdown"
           role="listbox"
-          className="absolute left-0 right-0 top-full mt-1 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-lg z-50 overflow-hidden"
+          className="popover-surface absolute left-0 right-0 top-full mt-1 z-50"
         >
           {hint && items.length === 0 && (
             <div className="px-3 py-2 text-xs text-[var(--muted)]">{hint}</div>

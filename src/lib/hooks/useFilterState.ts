@@ -7,7 +7,12 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
  * Two-way binding between a piece of filter state, a URL query param,
  * and a localStorage key.
  *
- * Initial value precedence: URL param > localStorage > defaultValue.
+ * Initial value precedence: URL param > defaultValue. localStorage is NOT
+ * read during initial render — it exists only on the client, so reading it in
+ * the useState initializer would make the client's first render disagree with
+ * the server-rendered HTML and trip React's hydration check. (The URL, by
+ * contrast, is identical on both sides.) localStorage is still written by
+ * setValue for forward-compatible persistence.
  *
  * User-driven setValue() writes to BOTH the URL (via router.replace,
  * scroll preserved) AND localStorage. URL-driven changes (back/forward,
@@ -34,16 +39,7 @@ export function useFilterState<T extends string>(
 
   const [value, setInternalValue] = useState<T>(() => {
     const fromUrl = searchParams.get(paramKey);
-    if (fromUrl != null && isValid(fromUrl)) return fromUrl;
-    if (typeof window !== 'undefined') {
-      try {
-        const fromStorage = window.localStorage.getItem(storageKey);
-        if (fromStorage != null && isValid(fromStorage)) return fromStorage;
-      } catch {
-        // localStorage unavailable (private mode etc.) — fall through.
-      }
-    }
-    return defaultValue;
+    return fromUrl != null && isValid(fromUrl) ? fromUrl : defaultValue;
   });
 
   // Sync from URL on external navigation. No localStorage write here.

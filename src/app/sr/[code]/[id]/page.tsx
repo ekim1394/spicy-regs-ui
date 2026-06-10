@@ -1,162 +1,283 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, Suspense } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Header } from '@/components/Header';
-import { DocketPost } from '@/components/feed/DocketPost';
+import { PageShell } from '@/components/ui/PageShell';
+import { Card } from '@/components/ui/Card';
+import { SectionLabel } from '@/components/ui/SectionLabel';
+import { Tabs, TabsList, TabsTrigger, TabsContent, useTabParam } from '@/components/ui/Tabs';
+import { DocketHeader } from '@/components/docket/DocketHeader';
+import { LifecycleTimeline } from '@/components/docket/LifecycleTimeline';
+import { CommentBreakdown, type CommentBreakdownData } from '@/components/docket/CommentBreakdown';
 import { DocumentList } from '@/components/feed/DocumentList';
 import { ThreadedComments } from '@/components/feed/ThreadedComments';
-import { AgencySidebar } from '@/components/feed/AgencySidebar';
 import { RelatedDockets } from '@/components/feed/RelatedDockets';
 import { RelatedFederalRegister } from '@/components/feed/RelatedFederalRegister';
+import { AgencyIdentity } from '@/components/agency/AgencyIdentity';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
-import { ExportButton } from '@/components/ExportButton';
-import { Loader2, ArrowLeft } from 'lucide-react';
+import { Loader2, ExternalLink } from 'lucide-react';
+import { stripQuotes } from '@/lib/utils/fieldFormat';
+import { usePageTitle } from '@/lib/hooks/usePageTitle';
 
-function stripQuotes(s: any): string {
-  if (!s) return '';
-  return String(s).replace(/^"|"$/g, '');
-}
+type DocketTab = 'overview' | 'documents' | 'comments';
+const isDocketTab = (raw: string): raw is DocketTab =>
+  raw === 'overview' || raw === 'documents' || raw === 'comments';
 
-export default function DocketDetailPage() {
+function DocketDetailInner() {
   const params = useParams();
   const agencyCode = ((params.code as string) || '').toUpperCase();
-  const rawId = params.id as string || '';
+  const rawId = (params.id as string) || '';
   const docketId = decodeURIComponent(rawId).toUpperCase();
 
-  const { getDocketById, getAgencyStats, getDocumentsForDocket, isReady } = useDuckDBService();
-  const [docket, setDocket] = useState<any>(null);
+  const {
+    getDocketById,
+    getDocumentsForDocket,
+    getCommentCounts,
+    getCommentVolumeAndClusters,
+    isReady,
+  } = useDuckDBService();
+
+  const [tab, setTab] = useTabParam<DocketTab>('overview', isDocketTab);
+
+  const [docket, setDocket] = useState<Record<string, any> | null>(null);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<any>();
   const [documents, setDocuments] = useState<any[]>([]);
   const [docsLoading, setDocsLoading] = useState(true);
+  const [commentCount, setCommentCount] = useState<number | undefined>();
+
+  // Overview comment aggregate (lazy: computed the first time the page lands on
+  // the Overview tab). Near-duplicate clustering powers the breakdown.
+  const [aggregate, setAggregate] = useState<CommentBreakdownData | null>(null);
 
   useEffect(() => {
     if (!isReady || !docketId) return;
+    // Clear stale state so navigating between dockets on this route segment
+    // shows the loading spinner instead of the previous docket's content.
+    setLoading(true);
+    setDocket(null);
     getDocketById(docketId)
-      .then(result => {
-        setDocket(result);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error('Failed to load docket:', err);
-        setLoading(false);
-      });
+      .then((result) => { setDocket(result); setLoading(false); })
+      .catch((err) => { console.error('Failed to load docket:', err); setLoading(false); });
   }, [isReady, docketId, getDocketById]);
 
-  // Load agency stats
-  useEffect(() => {
-    if (!isReady || !agencyCode) return;
-    getAgencyStats(agencyCode).then(setStats).catch(console.error);
-  }, [isReady, agencyCode, getAgencyStats]);
-
-  // Load documents for this docket
   useEffect(() => {
     if (!isReady || !docketId) return;
     setDocsLoading(true);
+    setDocuments([]);
     getDocumentsForDocket(docketId)
-      .then(docs => {
-        setDocuments(docs);
-        setDocsLoading(false);
-      })
-      .catch(err => {
-        console.error('Failed to load documents:', err);
-        setDocsLoading(false);
-      });
+      .then((docs) => { setDocuments(docs); setDocsLoading(false); })
+      .catch((err) => { console.error('Failed to load documents:', err); setDocsLoading(false); });
   }, [isReady, docketId, getDocumentsForDocket]);
+
+  useEffect(() => {
+    if (!isReady || !docketId) return;
+    setCommentCount(undefined);
+    getCommentCounts([docketId])
+      .then((counts) => setCommentCount(counts[docketId.toUpperCase()] ?? 0))
+      .catch((err) => console.error('Failed to load comment count:', err));
+  }, [isReady, docketId, getCommentCounts]);
+
+  // Reset the lazy aggregate when the docket changes, so navigating between
+  // dockets on this route segment can't show the previous docket's breakdown
+  // (the lazy guard below keys off `aggregate === null`).
+  useEffect(() => {
+    setAggregate(null);
+  }, [docketId]);
+
+  // Lazy-load the Overview comment breakdown the first time that tab is shown.
+  // One round-trip returns the daily volume, totals, and near-duplicate
+  // clusters that drive the orchestration read.
+  useEffect(() => {
+    if (!isReady || !docketId || tab !== 'overview' || aggregate !== null) return;
+    let cancelled = false;
+    getCommentVolumeAndClusters(docketId, 'near')
+      .then((res) => {
+        if (cancelled) return;
+        setAggregate(res);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        console.error('Failed to load comment analytics:', err);
+        setAggregate({
+          totals: { total: 0, unique: 0, empty: 0 },
+          volumeByDay: [],
+          clusters: [],
+          commentStartDate: null,
+          commentEndDate: null,
+        });
+      });
+    return () => { cancelled = true; };
+  }, [isReady, docketId, tab, aggregate, getCommentVolumeAndClusters]);
+
+  // e.g. "Definition of an Investment Advice Fiduciary (Docket EBSA-2023-0014)".
+  // Null while loading so the bare brand shows until the docket resolves.
+  usePageTitle(
+    docket ? `${stripQuotes(docket.title) || docketId} (Docket ${docketId})` : null,
+  );
+
+  const commentPeriod = useMemo(() => {
+    let start: string | null = null;
+    let end: string | null = null;
+    for (const d of documents) {
+      const s = stripQuotes(d.comment_start_date);
+      const e = stripQuotes(d.comment_end_date);
+      if (s && (!start || s < start)) start = s;
+      if (e && (!end || e > end)) end = e;
+    }
+    return { start, end };
+  }, [documents]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[var(--background)]">
-        <Header />
-        <div className="flex justify-center py-24">
-          <Loader2 size={32} className="animate-spin text-[var(--accent-primary)]" />
-        </div>
-      </div>
+      <PageShell mainClassName="flex justify-center py-24">
+        <Loader2 size={32} className="animate-spin text-[var(--accent-primary)]" />
+      </PageShell>
     );
   }
 
   if (!docket) {
     return (
-      <div className="min-h-screen bg-[var(--background)]">
-        <Header />
-        <div className="max-w-3xl mx-auto px-4 py-16 text-center">
-          <h1 className="text-2xl font-bold mb-2">Docket not found</h1>
-          <p className="text-[var(--muted)] mb-4">{docketId}</p>
-          <Link href={`/sr/${agencyCode}`} className="text-[var(--accent-primary)] hover:underline">
-            ← Back to sr/{agencyCode}
-          </Link>
-        </div>
-      </div>
+      <PageShell maxWidth="4xl" mainClassName="w-full max-w-4xl mx-auto px-4 py-16 text-center">
+        <h1 className="text-2xl font-bold mb-2">Docket not found</h1>
+        <p className="text-[var(--muted)] mb-4">{docketId}</p>
+        <Link href={`/sr/${agencyCode}`} className="text-[var(--accent-primary)] hover:underline">
+          ← Back to sr/{agencyCode}
+        </Link>
+      </PageShell>
     );
   }
 
+  const title = stripQuotes(docket.title) || docketId;
+  const abstract = stripQuotes(docket.abstract);
+  const docketType = stripQuotes(docket.docket_type);
+
   return (
-    <div className="min-h-screen bg-[var(--background)]">
-      <Header />
-      <main className="max-w-5xl mx-auto px-4 py-6">
-        {/* Back button + Export */}
-        <div className="flex items-center justify-between mb-4">
-          <Link
-            href={`/sr/${agencyCode}`}
-            className="inline-flex items-center gap-1.5 text-sm text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
-          >
-            <ArrowLeft size={14} />
-            sr/{agencyCode}
-          </Link>
-          {docket && (
-            <ExportButton
-              docketId={docketId}
-              agencyCode={agencyCode}
-              docket={docket}
-              documents={documents}
-            />
-          )}
-        </div>
+    <PageShell maxWidth="4xl">
+      {/* Breadcrumb */}
+      <nav className="text-xs text-[var(--muted)] mb-4">
+        <Link href="/feed" className="hover:text-[var(--foreground)]">Feed</Link>
+        {' → '}
+        <Link href={`/sr/${agencyCode}`} className="hover:text-[var(--foreground)]">sr/{agencyCode}</Link>
+        {' → '}
+        <span className="text-[var(--foreground)]">Docket</span>
+      </nav>
 
-        <div className="flex gap-6">
-          {/* Main content */}
-          <div className="flex-1 min-w-0">
-            {/* Docket Post */}
-            <DocketPost
-              item={docket}
-              commentCount={Number(docket.comment_count || 0)}
-              documentCount={Number(docket.document_count || 0)}
-              isDetailView={true}
-              showComments={true}
-            />
+      <div className="flex gap-6">
+        {/* Main content */}
+        <div className="flex-1 min-w-0 flex flex-col gap-4">
+          <DocketHeader
+            agencyCode={agencyCode}
+            docketId={docketId}
+            title={title}
+            docketType={docketType}
+            abstract={abstract || undefined}
+          />
 
-            {/* Related Dockets — fail-soft if search index isn't ready */}
-            <RelatedDockets
-              docketId={docketId}
-              title={stripQuotes(docket.title) || ''}
-            />
+          <Tabs value={tab} onValueChange={(v) => setTab(v as DocketTab)}>
+            <TabsList>
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="documents" count={documents.length || undefined}>Documents</TabsTrigger>
+              <TabsTrigger value="comments" count={commentCount || undefined}>Comments</TabsTrigger>
+            </TabsList>
 
-            {/* Related Federal Register publications — fail-soft if no matches */}
-            <RelatedFederalRegister docketId={docketId} />
+            {/* Overview */}
+            <TabsContent value="overview" className="pt-5 flex flex-col gap-6">
+              <section>
+                <SectionLabel label="Timeline" className="mb-2" />
+                <Card interactive={false} className="p-4">
+                  <LifecycleTimeline
+                    documents={documents}
+                    commentStartDate={commentPeriod.start}
+                    commentEndDate={commentPeriod.end}
+                  />
+                </Card>
+              </section>
 
-            {/* Documents */}
-            <div className="mt-4">
-              <DocumentList documents={documents} loading={docsLoading} />
-            </div>
+              {commentCount !== 0 && (
+                <section>
+                  {aggregate === null ? (
+                    <Card interactive={false} className="flex justify-center py-8">
+                      <Loader2 size={20} className="animate-spin text-[var(--accent-primary)]" />
+                    </Card>
+                  ) : (
+                    <CommentBreakdown data={aggregate} />
+                  )}
+                </section>
+              )}
+
+              {/* Canonical source link — lives here on the docket page rather than
+                  on every feed card. Only the destination is hyperlinked; the
+                  surrounding text is plain context. */}
+              <section>
+                <SectionLabel label="View on regulations.gov" className="mb-2" />
+                <p className="text-sm text-[var(--muted)]">
+                  View the full{' '}
+                  <a
+                    href={`https://www.regulations.gov/docket/${docketId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-medium text-[var(--accent-primary)] hover:underline"
+                  >
+                    &ldquo;{title}&rdquo;
+                    <ExternalLink size={13} className="ml-1 inline-block shrink-0 align-baseline" />
+                  </a>{' '}
+                  docket on regulations.gov
+                </p>
+              </section>
+
+              <RelatedFederalRegister docketId={docketId} />
+            </TabsContent>
+
+            {/* Documents — the tab itself is the heading, so the panel carries
+                no redundant section label (unlike Overview's multi-section stack). */}
+            <TabsContent value="documents" className="pt-5">
+              <Card interactive={false} className="p-4">
+                <DocumentList
+                  documents={documents}
+                  loading={docsLoading}
+                  agencyCode={agencyCode}
+                  docketId={docketId}
+                />
+              </Card>
+            </TabsContent>
 
             {/* Comments */}
-            <div className="mt-4 rounded-xl overflow-hidden border border-[var(--border)]">
-              <ThreadedComments docketId={docketId} modifyDate={stripQuotes(docket?.modify_date)} />
-            </div>
-          </div>
-
-          {/* Sidebar */}
-          {agencyCode && (
-            <div className="hidden lg:block w-72 flex-shrink-0">
-              <div className="sticky top-20">
-                <AgencySidebar agencyCode={agencyCode} stats={stats} />
-              </div>
-            </div>
-          )}
+            <TabsContent value="comments" className="pt-5">
+              <Card interactive={false} className="p-4">
+                <ThreadedComments docketId={docketId} modifyDate={stripQuotes(docket.modify_date)} />
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
-      </main>
-    </div>
+
+        {/* Sticky agency identity rail */}
+        <div className="hidden lg:block w-72 flex-shrink-0">
+          <div className="sticky top-20 flex flex-col gap-6">
+            <AgencyIdentity
+              agencyCode={agencyCode}
+              label="Agency"
+              cta="View agency profile →"
+              href={`/sr/${agencyCode}`}
+            />
+            <RelatedDockets docketId={docketId} title={title} />
+          </div>
+        </div>
+      </div>
+    </PageShell>
+  );
+}
+
+export default function DocketDetailPage() {
+  return (
+    <Suspense
+      fallback={
+        <PageShell mainClassName="flex justify-center py-24">
+          <Loader2 size={32} className="animate-spin text-[var(--accent-primary)]" />
+        </PageShell>
+      }
+    >
+      <DocketDetailInner />
+    </Suspense>
   );
 }
