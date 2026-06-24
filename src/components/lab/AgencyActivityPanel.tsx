@@ -101,7 +101,7 @@ export function AgencyActivityPanel({ agencyCode }: AgencyActivityPanelProps = {
   useEffect(() => {
     if (!isReady) return;
     let cancelled = false;
-    const R2 = 'https://pub-5fc11ad134984edf8d9af452dd1849d6.r2.dev';
+    const R2 = 'https://r2.spicy-regs.dev';
 
     // Single-agency (profile) path: no ranking pass, just this agency's months.
     if (agencyCode) {

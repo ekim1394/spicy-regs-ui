@@ -113,7 +113,7 @@ export function ExportButton({ docketId, agencyCode, docket, documents }: Export
     try {
       const cleanId = docketId.replace(/^"|"$/g, '').toUpperCase();
       const agency = cleanId.split('-')[0];
-      const R2_BASE_URL = 'https://pub-5fc11ad134984edf8d9af452dd1849d6.r2.dev';
+      const R2_BASE_URL = 'https://r2.spicy-regs.dev';
 
       // Query the comments index to find partition files for this docket
       const indexResult = await conn.query(`
