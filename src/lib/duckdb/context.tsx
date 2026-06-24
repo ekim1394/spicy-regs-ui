@@ -12,7 +12,7 @@ import {
   type ReactNode,
 } from "react";
 
-const R2_BASE_URL = "https://pub-5fc11ad134984edf8d9af452dd1849d6.r2.dev";
+const R2_BASE_URL = "https://r2.spicy-regs.dev";
 
 /**
  * Number of DuckDB connections to open against the single WASM worker. Queries

@@ -8,7 +8,7 @@ import type {
   SuggestResult,
 } from "./types";
 
-const R2_BASE_URL = "https://pub-5fc11ad134984edf8d9af452dd1849d6.r2.dev";
+const R2_BASE_URL = "https://r2.spicy-regs.dev";
 const INDEX_FILENAME = "docket_search.json.gz";
 const CACHE_KEY = "docket-search-v1";
 
