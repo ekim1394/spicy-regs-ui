@@ -41,6 +41,49 @@ const feedSummaryRef = () => {
   return `read_parquet('${R2_BASE_URL}/feed_summary.parquet')`;
 };
 
+/**
+ * Build a read_parquet() reference for the pre-computed per-agency monthly
+ * document-volume rollup (columns: agency_code, year, month, document_type,
+ * document_count). Replaces full scans of the ~57 MB documents.parquet for the
+ * Agencies directory sparklines and the /lab activity small-multiples. Rows are
+ * already grouped by (agency_code, year, month, document_type), so callers
+ * SUM(document_count) to collapse across types.
+ */
+const agencyMonthlyVolumeRef = () => {
+  return `read_parquet('${R2_BASE_URL}/agency_monthly_volume.parquet')`;
+};
+
+/**
+ * Reconstruct the first-of-month DATE from the rollup's integer year/month
+ * columns, for filtering and formatting (EXTRACT wrote them as BIGINT).
+ */
+const rollupMonthDate = () =>
+  `make_date(CAST(year AS INTEGER), CAST(month AS INTEGER), 1)`;
+
+/**
+ * Pre-computed rulemaking lifecycles (kind='pair' completed Proposed→Rule with
+ * `days`; kind='stuck' unmatched proposals). Replaces the multi-CTE self-join
+ * over documents.parquet on the agency profile / lab panels.
+ */
+const rulemakingLifecyclesRef = () =>
+  `read_parquet('${R2_BASE_URL}/rulemaking_lifecycles.parquet')`;
+
+/**
+ * Pre-computed per-agency document-output spike (agency_code, recent_30d,
+ * baseline, ratio). Replaces the documents.parquet scan behind the feed's
+ * 'spike' discovery signal.
+ */
+const discoverySignalsRef = () =>
+  `read_parquet('${R2_BASE_URL}/discovery_signals.parquet')`;
+
+/**
+ * Pre-computed Federal Register ↔ docket link table (docket_ids_json exploded to
+ * one row per docket_id, carrying the FR display columns, sorted by docket_id).
+ * Replaces the `docket_ids_json LIKE '%"id"%'` full-scan on the docket page.
+ */
+const frDocketLinksRef = () =>
+  `read_parquet('${R2_BASE_URL}/fr_docket_links.parquet')`;
+
 type FeedFilterOpts = {
   agencyCode?: string;
   sortBy?: 'recent' | 'popular' | 'open' | 'closed';
@@ -673,8 +716,10 @@ export function useDuckDBService() {
    * docket via FR's docket_ids_json field. Used by the RelatedFederalRegister
    * section on the docket detail page.
    *
-   * Match strategy: substring on docket_ids_json with surrounding double
-   * quotes so we don't false-match a docket ID that's a substring of another.
+   * Reads the pre-computed fr_docket_links rollup, which is sorted by docket_id
+   * so `WHERE docket_id = ?` prunes row groups instead of scanning the 793K-row
+   * federal_register file with a wildcard LIKE. The rollup carries every column
+   * FR_SELECT_COLS derives from (verified equal to the old LIKE on 200 dockets).
    */
   const getFRPublicationsForDocket = useCallback(
     async (docketId: string, limit = 5): Promise<FederalRegisterDoc[]> => {
@@ -684,15 +729,15 @@ export function useDuckDBService() {
 
       const query = `
         SELECT ${FR_SELECT_COLS}
-        FROM ${federalRegisterRef()}
-        WHERE docket_ids_json LIKE '%"${sqlStr(cleanId)}"%'
+        FROM ${frDocketLinksRef()}
+        WHERE docket_id = '${sqlStr(cleanId)}'
         ORDER BY publication_date DESC NULLS LAST
         LIMIT ${limit}
       `;
-      const rows = await runQuery<Record<string, unknown>>(query);
+      const rows = await runCachedQuery<Record<string, unknown>>(query, ROLLUP_CACHE);
       return rows.map(normalizeFRRow);
     },
-    [runQuery, isReady]
+    [runCachedQuery, isReady]
   );
 
   /**
@@ -752,19 +797,21 @@ export function useDuckDBService() {
       const typesIn = documentTypes.map(t => `'${sqlStr(t)}'`).join(',');
       const conditions = [
         `document_type IN (${typesIn})`,
-        `TRY_CAST(posted_date AS DATE) >= DATE '${since}'`,
+        `${rollupMonthDate()} >= DATE '${since}'`,
       ];
       if (agencyCodes && agencyCodes.length > 0) {
         const list = agencyCodes.map(a => `'${sqlStr(a.toUpperCase())}'`).join(',');
         conditions.push(`agency_code IN (${list})`);
       }
 
+      // Reads the pre-computed agency_monthly_volume rollup (already grouped by
+      // agency/year/month/document_type) instead of scanning documents.parquet.
       const query = `
         SELECT agency_code,
                document_type,
-               strftime(date_trunc('month', TRY_CAST(posted_date AS DATE)), '%Y-%m-%d') AS month,
-               COUNT(*) AS n
-        FROM ${parquetRef('documents' as RegulationsDataTypes)}
+               strftime(${rollupMonthDate()}, '%Y-%m-%d') AS month,
+               SUM(document_count) AS n
+        FROM ${agencyMonthlyVolumeRef()}
         WHERE ${conditions.join(' AND ')}
         GROUP BY 1, 2, 3
         ORDER BY 1, 2, 3
@@ -1081,30 +1128,13 @@ export function useDuckDBService() {
 
       const list = agencyCodes.map(a => `'${sqlStr(a.toUpperCase())}'`).join(',');
 
+      // Completed Proposed→Rule pairs come pre-computed from the rollup (kind
+      // ='pair'), so this no longer self-joins documents.parquet twice.
       const pairsCTE = `
-        WITH props AS (
-          SELECT docket_id, agency_code,
-                 ANY_VALUE(title) AS title,
-                 MIN(TRY_CAST(posted_date AS DATE)) AS proposed_date
-          FROM ${parquetRef('documents' as RegulationsDataTypes)}
-          WHERE document_type = 'Proposed Rule' AND agency_code IN (${list})
-          GROUP BY 1, 2
-        ),
-        finals AS (
-          SELECT docket_id, MIN(TRY_CAST(posted_date AS DATE)) AS final_date
-          FROM ${parquetRef('documents' as RegulationsDataTypes)}
-          WHERE document_type = 'Rule' AND agency_code IN (${list})
-          GROUP BY 1
-        ),
-        pairs AS (
-          SELECT p.docket_id, p.agency_code, p.title, p.proposed_date, f.final_date,
-                 date_diff('day', p.proposed_date, f.final_date) AS days
-          FROM props p
-          JOIN finals f USING (docket_id)
-          WHERE p.proposed_date IS NOT NULL
-            AND f.final_date IS NOT NULL
-            AND f.final_date >= p.proposed_date
-            AND p.proposed_date >= DATE '2010-01-01'
+        WITH pairs AS (
+          SELECT docket_id, agency_code, title, proposed_date, final_date, days
+          FROM ${rulemakingLifecyclesRef()}
+          WHERE kind = 'pair' AND agency_code IN (${list})
         )
       `;
 
@@ -1159,36 +1189,25 @@ export function useDuckDBService() {
       // displayed sample spreads across years instead of clustering on the
       // exact boundary date.
       const stuckPerTier = Math.max(2, Math.floor(limitStuck / 3));
+      // Stuck candidates (proposed, never finalized) come pre-computed from the
+      // rollup (kind='stuck'); the CURRENT_DATE-relative age window, tier, and
+      // days_open are derived live here so they stay accurate between rebuilds.
       const stuck = await runCachedQuery<{
         docket_id: string; agency_code: string; title: string; proposed_date: string; days_open: number;
       }>(`
-        WITH props AS (
-          SELECT docket_id, agency_code,
-                 ANY_VALUE(title) AS title,
-                 MIN(TRY_CAST(posted_date AS DATE)) AS proposed_date
-          FROM ${parquetRef('documents' as RegulationsDataTypes)}
-          WHERE document_type = 'Proposed Rule' AND agency_code IN (${list})
-          GROUP BY 1, 2
-        ),
-        finals AS (
-          SELECT DISTINCT docket_id
-          FROM ${parquetRef('documents' as RegulationsDataTypes)}
-          WHERE document_type = 'Rule'
-        ),
-        candidates AS (
-          SELECT p.docket_id, p.agency_code, p.title, p.proposed_date,
-                 date_diff('day', p.proposed_date, CURRENT_DATE) AS days_open,
+        WITH candidates AS (
+          SELECT docket_id, agency_code, title, proposed_date,
+                 date_diff('day', proposed_date, CURRENT_DATE) AS days_open,
                  CASE
-                   WHEN p.proposed_date >= CURRENT_DATE - INTERVAL '3 years' THEN 'recent'
-                   WHEN p.proposed_date >= CURRENT_DATE - INTERVAL '5 years' THEN 'mid'
+                   WHEN proposed_date >= CURRENT_DATE - INTERVAL '3 years' THEN 'recent'
+                   WHEN proposed_date >= CURRENT_DATE - INTERVAL '5 years' THEN 'mid'
                    ELSE 'old'
                  END AS tier
-          FROM props p
-          LEFT JOIN finals f USING (docket_id)
-          WHERE f.docket_id IS NULL
-            AND p.proposed_date IS NOT NULL
-            AND p.proposed_date <= CURRENT_DATE - INTERVAL '18 months'
-            AND p.proposed_date >= CURRENT_DATE - INTERVAL '8 years'
+          FROM ${rulemakingLifecyclesRef()}
+          WHERE kind = 'stuck' AND agency_code IN (${list})
+            AND proposed_date IS NOT NULL
+            AND proposed_date <= CURRENT_DATE - INTERVAL '18 months'
+            AND proposed_date >= CURRENT_DATE - INTERVAL '8 years'
         ),
         ranked AS (
           SELECT *,
@@ -1239,28 +1258,10 @@ export function useDuckDBService() {
         n: number; agency_count: number;
         p10: number; p25: number; p50: number; p75: number; p90: number;
       }>(`
-        WITH props AS (
-          SELECT docket_id, agency_code,
-                 MIN(TRY_CAST(posted_date AS DATE)) AS proposed_date
-          FROM ${parquetRef('documents' as RegulationsDataTypes)}
-          WHERE document_type = 'Proposed Rule' AND agency_code IS NOT NULL
-          GROUP BY 1, 2
-        ),
-        finals AS (
-          SELECT docket_id, MIN(TRY_CAST(posted_date AS DATE)) AS final_date
-          FROM ${parquetRef('documents' as RegulationsDataTypes)}
-          WHERE document_type = 'Rule'
-          GROUP BY 1
-        ),
-        pairs AS (
-          SELECT p.agency_code,
-                 date_diff('day', p.proposed_date, f.final_date) AS days
-          FROM props p
-          JOIN finals f USING (docket_id)
-          WHERE p.proposed_date IS NOT NULL
-            AND f.final_date IS NOT NULL
-            AND f.final_date >= p.proposed_date
-            AND p.proposed_date >= DATE '2010-01-01'
+        WITH pairs AS (
+          SELECT agency_code, days
+          FROM ${rulemakingLifecyclesRef()}
+          WHERE kind = 'pair' AND agency_code IS NOT NULL
         )
         SELECT COUNT(*) AS n,
                COUNT(DISTINCT agency_code) AS agency_count,
@@ -1337,21 +1338,8 @@ export function useDuckDBService() {
           LIMIT ${perKind}
         `, ROLLUP_CACHE),
         runCachedQuery<{ agency_code: string; recent_30d: number; baseline: number; ratio: number }>(`
-          WITH per AS (
-            SELECT agency_code,
-              COUNT(*) FILTER (WHERE TRY_CAST(posted_date AS TIMESTAMP) >= CAST(NOW() AS TIMESTAMP) - INTERVAL '30' DAY) AS recent_30d,
-              COUNT(*) FILTER (WHERE TRY_CAST(posted_date AS TIMESTAMP) >= CAST(NOW() AS TIMESTAMP) - INTERVAL '13' MONTH
-                                AND TRY_CAST(posted_date AS TIMESTAMP) < CAST(NOW() AS TIMESTAMP) - INTERVAL '1' MONTH) AS prior_yr
-            FROM ${parquetRef('documents' as RegulationsDataTypes)}
-            WHERE TRY_CAST(posted_date AS TIMESTAMP) >= CAST(NOW() AS TIMESTAMP) - INTERVAL '13' MONTH
-              AND agency_code IS NOT NULL
-            GROUP BY 1
-          )
-          SELECT agency_code, recent_30d, (prior_yr / 12.0) AS baseline,
-                 (recent_30d / NULLIF(prior_yr / 12.0, 0)) AS ratio
-          FROM per
-          WHERE prior_yr >= 24
-            AND (recent_30d / NULLIF(prior_yr / 12.0, 0)) >= 2.0
+          SELECT agency_code, recent_30d, baseline, ratio
+          FROM ${discoverySignalsRef()}
           ORDER BY ratio DESC
           LIMIT ${perKind}
         `, ROLLUP_CACHE),
@@ -1478,13 +1466,15 @@ export function useDuckDBService() {
       if (codes.length === 0) return result;
 
       const list = codes.map(c => `'${sqlStr(c.toUpperCase())}'`).join(',');
+      // Reads the pre-computed agency_monthly_volume rollup and sums across
+      // document types, instead of scanning the ~57 MB documents.parquet.
       const rows = await runCachedQuery<{ agency_code: string; month: string; n: number }>(`
         SELECT agency_code,
-               strftime(date_trunc('month', TRY_CAST(posted_date AS DATE)), '%Y-%m') AS month,
-               COUNT(*) AS n
-        FROM ${parquetRef('documents' as RegulationsDataTypes)}
+               strftime(${rollupMonthDate()}, '%Y-%m') AS month,
+               SUM(document_count) AS n
+        FROM ${agencyMonthlyVolumeRef()}
         WHERE agency_code IN (${list})
-          AND TRY_CAST(posted_date AS DATE) >= date_trunc('month', CURRENT_DATE) - INTERVAL '${months - 1}' MONTH
+          AND ${rollupMonthDate()} >= date_trunc('month', CURRENT_DATE) - INTERVAL '${months - 1}' MONTH
         GROUP BY 1, 2
         ORDER BY 1, 2
       `, ROLLUP_CACHE);
