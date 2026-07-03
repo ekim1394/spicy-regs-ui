@@ -23,10 +23,11 @@ export function Header() {
           width, so the logo / search / nav never shift between routes. */}
       <div className={`${APP_FRAME} mx-auto px-4`}>
         <div className="flex items-center gap-4 h-14">
-          {/* Logo → the feed (the primary product surface). Flanking sections
-              share flex-1 so the search bar stays centered in the header. */}
+          {/* Logo → the About page (the product's front door, served on the
+              apex domain). Flanking sections share flex-1 so the search bar
+              stays centered in the header. */}
           <div className="flex-1 flex justify-start">
-            <Link href="/feed" className="flex items-center gap-1.5 flex-shrink-0">
+            <Link href="/about" className="flex items-center gap-1.5 flex-shrink-0">
               <Flame size={22} className="text-[var(--accent-primary)]" />
               <span className="text-lg font-bold gradient-text font-serif hidden sm:inline">
                 SpicyRegs
