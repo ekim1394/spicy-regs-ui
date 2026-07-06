@@ -84,6 +84,29 @@ const discoverySignalsRef = () =>
 const frDocketLinksRef = () =>
   `read_parquet('${R2_BASE_URL}/fr_docket_links.parquet')`;
 
+/**
+ * Pre-computed per-agency dimension rollup (agency_code, docket_count,
+ * document_count, comment_count) — one row per agency. Replaces the ad-hoc
+ * COUNT(*) scans of dockets.parquet + documents.parquet + the comments_index
+ * SUM that the agency directory / masthead used to fan out for every agency.
+ */
+const agencyStatsRef = () =>
+  `read_parquet('${R2_BASE_URL}/agency_stats.parquet')`;
+
+/**
+ * Build a read_parquet() reference for the per-agency comments mirror
+ * (comments/agency/agency_code={A}/part-0.parquet). Unlike the deep
+ * per-docket-month partitions used by buildCommentsSource, this layout carries
+ * the FULL comment schema — including submitter fields (first_name, last_name,
+ * organization, category) and text_content (extracted attachment text). It is
+ * sorted by docket_id, so `WHERE docket_id = ?` prunes to a row group; that's a
+ * good fit for one-shot whole-docket reads (export) but a poor fit for the
+ * interactive paginated feed, where a ~500k-row row group would be re-scanned
+ * per page. Prefer the deep partitions for paginated display.
+ */
+const commentsMirrorRef = (agencyCode: string) =>
+  `read_parquet('${R2_BASE_URL}/comments/agency/agency_code=${agencyCode}/part-0.parquet')`;
+
 type FeedFilterOpts = {
   agencyCode?: string;
   sortBy?: 'recent' | 'popular' | 'open' | 'closed';
@@ -487,7 +510,12 @@ export function useDuckDBService() {
         ? 'ORDER BY posted_date ASC'
         : 'ORDER BY posted_date DESC';
 
-      const query = `SELECT comment_id, docket_id, agency_code, title, comment, posted_date, modify_date FROM ${commentsSource} WHERE docket_id = '${cleanId}' ${orderClause} LIMIT ${limit} OFFSET ${offset}`;
+      // attachments_json lives in the deep partition schema, so projecting it
+      // here is free and lights up the attachment chips in ThreadedComments
+      // (many "See attached file(s)" comments carry their real content as an
+      // attachment). Submitter name/org and text_content are NOT in this layout
+      // — see getAllCommentsForDocket for the full-schema mirror read.
+      const query = `SELECT comment_id, docket_id, agency_code, title, comment, posted_date, modify_date, attachments_json FROM ${commentsSource} WHERE docket_id = '${cleanId}' ${orderClause} LIMIT ${limit} OFFSET ${offset}`;
       return runQuery(query);
     },
     [runQuery, isReady, buildCommentsSource]
@@ -556,7 +584,9 @@ export function useDuckDBService() {
    */
   /**
    * Get aggregate stats for an agency.
-   * Comment counts come from the index — no need to read data files.
+   * Reads a single row from the pre-computed agency_stats rollup instead of
+   * fanning out COUNT(*) over dockets.parquet + documents.parquet and a
+   * comments_index SUM.
    */
   const getAgencyStats = useCallback(
     async (agencyCode: string): Promise<{ docketCount: number; documentCount: number; commentCount: number }> => {
@@ -564,20 +594,17 @@ export function useDuckDBService() {
 
       const upper = agencyCode.toUpperCase();
 
-      const [docketResult, docResult, commentResult] = await Promise.all([
-        runCachedQuery<{ count: number }>(`
-          SELECT COUNT(*) as count
-          FROM ${parquetRef("dockets" as RegulationsDataTypes)}
-          WHERE agency_code = '${upper}'
-        `, ROLLUP_CACHE),
-        runCachedQuery<{ count: number }>(`SELECT COUNT(*) as count FROM ${parquetRef("documents" as RegulationsDataTypes)} WHERE agency_code = '${upper}'`, ROLLUP_CACHE),
-        runCachedQuery<{ count: number }>(`SELECT COALESCE(CAST(SUM(row_count) AS BIGINT), 0) as count FROM ${commentsIndexRef()} WHERE agency_code = '${upper}'`, ROLLUP_CACHE),
-      ]);
+      const rows = await runCachedQuery<{ docket_count: number; document_count: number; comment_count: number }>(`
+        SELECT docket_count, document_count, comment_count
+        FROM ${agencyStatsRef()}
+        WHERE agency_code = '${sqlStr(upper)}'
+        LIMIT 1
+      `, ROLLUP_CACHE);
 
       return {
-        docketCount: Number(docketResult[0]?.count ?? 0),
-        documentCount: Number(docResult[0]?.count ?? 0),
-        commentCount: Number(commentResult[0]?.count ?? 0),
+        docketCount: Number(rows[0]?.docket_count ?? 0),
+        documentCount: Number(rows[0]?.document_count ?? 0),
+        commentCount: Number(rows[0]?.comment_count ?? 0),
       };
     },
     [runCachedQuery, isReady]
@@ -590,46 +617,37 @@ export function useDuckDBService() {
     async (limit: number = 4): Promise<{ agency_code: string; docket_count: number }[]> => {
       if (!isReady) throw new Error("DuckDB not ready");
 
-      const query = `SELECT agency_code, COUNT(*) as docket_count FROM ${parquetRef("dockets" as RegulationsDataTypes)} GROUP BY agency_code ORDER BY docket_count DESC LIMIT ${limit}`;
-      return runQuery<{ agency_code: string; docket_count: number }>(query);
+      // Ranked directly off the agency_stats rollup (one row per agency) instead
+      // of a GROUP BY over the whole dockets.parquet.
+      const rows = await runCachedQuery<{ agency_code: string; docket_count: number }>(
+        `SELECT agency_code, docket_count FROM ${agencyStatsRef()} ORDER BY docket_count DESC LIMIT ${limit}`,
+        ROLLUP_CACHE
+      );
+      return rows.map(r => ({ agency_code: stripQuotes(r.agency_code), docket_count: Number(r.docket_count) }));
     },
-    [runQuery, isReady]
+    [runCachedQuery, isReady]
   );
 
   /**
    * Get docket + comment counts for all agencies, keyed by code.
-   * Dockets come from dockets.parquet; comment totals from the comments index
-   * (SUM(row_count) per agency) — cheap, since the index never touches the
-   * multi-GB comment data files. Two GROUP BYs run in parallel and merge.
+   * Both counts come pre-aggregated from the agency_stats rollup (one row per
+   * agency) in a single read, instead of a GROUP BY over dockets.parquet plus a
+   * GROUP BY over the comments index.
    */
   const getAllAgencyCounts = useCallback(
     async (): Promise<Record<string, { dockets: number; comments: number }>> => {
       if (!isReady) throw new Error("DuckDB not ready");
 
-      const [docketRows, commentRows] = await Promise.all([
-        runCachedQuery<{ agency_code: string; docket_cnt: number }>(`
-          SELECT agency_code, COUNT(*) as docket_cnt
-          FROM ${parquetRef("dockets" as RegulationsDataTypes)}
-          GROUP BY agency_code
-        `, ROLLUP_CACHE),
-        runCachedQuery<{ agency_code: string; comment_cnt: number }>(`
-          SELECT agency_code, CAST(SUM(row_count) AS BIGINT) as comment_cnt
-          FROM ${commentsIndexRef()}
-          GROUP BY agency_code
-        `, ROLLUP_CACHE),
-      ]);
+      const rows = await runCachedQuery<{ agency_code: string; docket_count: number; comment_count: number }>(`
+        SELECT agency_code, docket_count, comment_count
+        FROM ${agencyStatsRef()}
+      `, ROLLUP_CACHE);
 
       const result: Record<string, { dockets: number; comments: number }> = {};
-      for (const r of docketRows) {
+      for (const r of rows) {
         const code = stripQuotes(r.agency_code);
         if (!code) continue;
-        result[code] = { dockets: Number(r.docket_cnt), comments: 0 };
-      }
-      for (const r of commentRows) {
-        const code = stripQuotes(r.agency_code);
-        if (!code) continue;
-        if (result[code]) result[code].comments = Number(r.comment_cnt);
-        else result[code] = { dockets: 0, comments: Number(r.comment_cnt) };
+        result[code] = { dockets: Number(r.docket_count), comments: Number(r.comment_count) };
       }
       return result;
     },
@@ -638,20 +656,29 @@ export function useDuckDBService() {
 
   /**
    * Get ALL comments for a docket (for export). No pagination, capped at 50k rows.
+   *
+   * Reads the per-agency comments mirror rather than the deep per-docket-month
+   * partitions, so exports carry the FULL comment schema — submitter fields
+   * (first_name, last_name, organization, category) and text_content included.
+   * A one-shot export tolerates the mirror's row-group-granular read (the deep
+   * partitions omit those columns). The agency is resolved from the index so we
+   * don't assume the docket_id prefix equals the agency_code partition value.
    */
   const getAllCommentsForDocket = useCallback(
     async (docketId: string): Promise<any[]> => {
       if (!isReady) throw new Error("DuckDB not ready");
 
       const cleanId = docketId.replace(/^"|"$/g, '').toUpperCase();
-      const agency = cleanId.split('-')[0];
-      const commentsSource = await buildCommentsSource(agency, cleanId);
-      if (!commentsSource) return [];
+      const agencyRows = await runQuery<{ agency_code: string }>(
+        `SELECT DISTINCT agency_code FROM ${commentsIndexRef()} WHERE docket_id = '${sqlStr(cleanId)}'`
+      );
+      const agency = agencyRows[0]?.agency_code ? stripQuotes(agencyRows[0].agency_code) : null;
+      if (!agency) return [];
 
-      const query = `SELECT * FROM ${commentsSource} WHERE docket_id = '${cleanId}' ORDER BY posted_date DESC LIMIT 50000`;
+      const query = `SELECT * FROM ${commentsMirrorRef(agency)} WHERE docket_id = '${sqlStr(cleanId)}' ORDER BY posted_date DESC LIMIT 50000`;
       return runQuery(query);
     },
-    [runQuery, isReady, buildCommentsSource]
+    [runQuery, isReady]
   );
 
   /**
