@@ -95,17 +95,17 @@ const agencyStatsRef = () =>
 
 /**
  * Build a read_parquet() reference for the per-agency comments mirror
- * (comments/agency/agency_code={A}/part-0.parquet). Unlike the deep
- * per-docket-month partitions used by buildCommentsSource, this layout carries
- * the FULL comment schema — including submitter fields (first_name, last_name,
- * organization, category) and text_content (extracted attachment text). It is
- * sorted by docket_id, so `WHERE docket_id = ?` prunes to a row group; that's a
- * good fit for one-shot whole-docket reads (export) but a poor fit for the
- * interactive paginated feed, where a ~500k-row row group would be re-scanned
- * per page. Prefer the deep partitions for paginated display.
+ * (comments/agency/agency_code={A}/part-0.parquet) — the fresh, canonical
+ * comment read surface, republished daily from the Iceberg catalog. Carries the
+ * FULL comment schema: submitter fields (first_name, last_name, organization,
+ * category) and text_content (extracted attachment text). Sorted by docket_id
+ * and written with small (20k) row groups, so `WHERE docket_id = ?` prunes to a
+ * few row groups — cheap enough for the interactive paginated feed, not just
+ * one-shot exports. `hive_partitioning=true` recovers the agency_code column
+ * from the directory name (partition_comments drops it from the file body).
  */
 const commentsMirrorRef = (agencyCode: string) =>
-  `read_parquet('${R2_BASE_URL}/comments/agency/agency_code=${agencyCode}/part-0.parquet')`;
+  `read_parquet('${R2_BASE_URL}/comments/agency/agency_code=${agencyCode}/part-0.parquet', hive_partitioning=true)`;
 
 type FeedFilterOpts = {
   agencyCode?: string;
@@ -231,6 +231,23 @@ function sqlStr(s: string): string {
 }
 
 /**
+ * Display/analysis body for a comment. Falls back to the extracted attachment
+ * text (`text_content`) when the submitted body is empty or a bare
+ * "See attached file(s)" placeholder, so attachment-only comments show real
+ * content instead of a stub. Falls back to the original value when there is no
+ * text_content. Only valid against the per-agency mirror (the deep layout has
+ * no text_content column).
+ */
+function sqlCommentBody(bodyCol = 'comment', textCol = 'text_content'): string {
+  return `CASE
+    WHEN ${bodyCol} IS NULL OR TRIM(${bodyCol}) = ''
+         OR LOWER(TRIM(${bodyCol})) LIKE 'see attached%'
+    THEN COALESCE(NULLIF(TRIM(${textCol}), ''), ${bodyCol})
+    ELSE ${bodyCol}
+  END`;
+}
+
+/**
  * Whether a docket's comment window is open (`true`) or already closed
  * (`false`) as a SQL boolean expression. `CAST(NOW() AS TIMESTAMP)` is required
  * because DuckDB-WASM has no TIMESTAMPTZ ± INTERVAL operator.
@@ -256,25 +273,32 @@ export function useDuckDBService() {
   const agencyCache = useRef<string[] | null>(null);
 
   /**
-   * Build a read_parquet() SQL expression for comment partitions by querying the index.
-   * Returns a SQL source expression like read_parquet([url1, url2, ...]).
+   * Resolve the read_parquet() source for a docket's (or an agency's) comments.
+   *
+   * Comments are served from the per-agency mirror (commentsMirrorRef) — the
+   * fresh, full-schema surface republished from the Iceberg catalog. The old
+   * deep per-docket-month layout is no longer written by the ETL, so reading it
+   * served stale data. The comments index is still the cheap way to (a) confirm
+   * a docket/agency actually has comments and (b) get its authoritative
+   * agency_code (the mirror is partitioned by agency_code, which may differ from
+   * the docket_id prefix). Callers filter the returned source with
+   * `WHERE docket_id = ?`. Returns null when there are no comments.
    */
   const buildCommentsSource = useCallback(
     async (agencyCode: string, docketId?: string): Promise<string | null> => {
-      const conditions = [`agency_code = '${agencyCode}'`];
-      if (docketId) conditions.push(`docket_id = '${docketId}'`);
+      // Prefer resolving by docket_id (authoritative agency_code); fall back to
+      // the agency for whole-agency reads.
+      const where = docketId
+        ? `docket_id = '${sqlStr(docketId)}'`
+        : `agency_code = '${sqlStr(agencyCode)}'`;
 
-      const rows = await runQuery<{
-        agency_code: string; docket_id: string; year: number; month: number;
-      }>(`SELECT agency_code, docket_id, year, month FROM ${commentsIndexRef()} WHERE ${conditions.join(' AND ')}`);
-
-      if (rows.length === 0) return null;
-
-      const urls = rows.map(r =>
-        `'${R2_BASE_URL}/comments/agency_code=${r.agency_code}/docket_id=${r.docket_id}/year=${r.year}/month=${r.month}/part-0.parquet'`
+      const rows = await runQuery<{ agency_code: string }>(
+        `SELECT DISTINCT agency_code FROM ${commentsIndexRef()} WHERE ${where}`
       );
+      const agency = rows[0]?.agency_code ? stripQuotes(rows[0].agency_code) : null;
+      if (!agency) return null;
 
-      return `read_parquet([${urls.join(', ')}], union_by_name=true)`;
+      return commentsMirrorRef(agency);
     },
     [runQuery]
   );
@@ -487,9 +511,13 @@ export function useDuckDBService() {
   );
 
   /**
-   * Get comments for a specific docket.
-   * Extracts agency code from docket_id prefix to read only that agency's
-   * partition file instead of scanning the full 3GB+ comments dataset.
+   * Get comments for a specific docket, from the per-agency comments mirror.
+   *
+   * Projects the submitter fields (first_name, last_name, organization,
+   * category) that ThreadedComments renders as the author line + Organization
+   * badge, and resolves the display body through sqlCommentBody so
+   * attachment-only "See attached file(s)" comments show their extracted text.
+   * attachments_json drives the attachment chips.
    */
   const getCommentsForDocket = useCallback(
     async (
@@ -510,12 +538,13 @@ export function useDuckDBService() {
         ? 'ORDER BY posted_date ASC'
         : 'ORDER BY posted_date DESC';
 
-      // attachments_json lives in the deep partition schema, so projecting it
-      // here is free and lights up the attachment chips in ThreadedComments
-      // (many "See attached file(s)" comments carry their real content as an
-      // attachment). Submitter name/org and text_content are NOT in this layout
-      // — see getAllCommentsForDocket for the full-schema mirror read.
-      const query = `SELECT comment_id, docket_id, agency_code, title, comment, posted_date, modify_date, attachments_json FROM ${commentsSource} WHERE docket_id = '${cleanId}' ${orderClause} LIMIT ${limit} OFFSET ${offset}`;
+      const query = `SELECT comment_id, docket_id, agency_code, title,
+          ${sqlCommentBody()} AS comment,
+          first_name, last_name, organization, category,
+          posted_date, modify_date, attachments_json
+        FROM ${commentsSource}
+        WHERE docket_id = '${sqlStr(cleanId)}'
+        ${orderClause} LIMIT ${limit} OFFSET ${offset}`;
       return runQuery(query);
     },
     [runQuery, isReady, buildCommentsSource]
@@ -1047,10 +1076,10 @@ export function useDuckDBService() {
    * same logic the TS demo and (recommended) the mirror precompute would run.
    * `sample` is the cleaned display text so the panel can score stance on it.
    *
-   * NOTE: the comment partition files carry no submitter name/org columns (a
-   * known mirror schema gap), so the extra "mask the signer's own name" step in
-   * the TS spec (toSkeleton) can't run here — it's deferred to the offline
-   * pipeline where those fields exist. Body-only form letters still collapse.
+   * NOTE: this now reads the per-agency mirror, which DOES carry submitter
+   * name/org columns, so the "mask the signer's own name" step (sqlStripName)
+   * could be wired in here — it's just not selected yet. Currently the key is
+   * body-only, so form letters collapse regardless.
    */
   const getCommentClustersMultiTier = useCallback(
     async (
