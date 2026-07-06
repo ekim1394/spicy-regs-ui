@@ -112,14 +112,15 @@ export function ExportButton({ docketId, agencyCode, docket, documents }: Export
     setExporting('parquet');
     try {
       const cleanId = docketId.replace(/^"|"$/g, '').toUpperCase();
-      const agency = cleanId.split('-')[0];
       const R2_BASE_URL = 'https://r2.spicy-regs.dev';
 
-      // Query the comments index to find partition files for this docket
+      // Resolve the docket's agency from the index, then read the per-agency
+      // comments mirror — it carries the full comment schema (submitter fields +
+      // text_content), matching the CSV/JSON exports (getAllCommentsForDocket).
       const indexResult = await conn.query(`
-        SELECT agency_code, docket_id, year, month
+        SELECT DISTINCT agency_code
         FROM read_parquet('${R2_BASE_URL}/comments_index.parquet')
-        WHERE agency_code = '${agency}' AND docket_id = '${cleanId}'
+        WHERE docket_id = '${cleanId.replace(/'/g, "''")}'
       `);
       const rows = indexResult.toArray().map((r: any) => r.toJSON());
 
@@ -128,10 +129,8 @@ export function ExportButton({ docketId, agencyCode, docket, documents }: Export
         return;
       }
 
-      const urls = rows.map((r: any) =>
-        `'${R2_BASE_URL}/comments/agency_code=${r.agency_code}/docket_id=${r.docket_id}/year=${r.year}/month=${r.month}/part-0.parquet'`
-      );
-      const commentsSource = `read_parquet([${urls.join(', ')}], union_by_name=true)`;
+      const agency = stripQuotes(rows[0].agency_code);
+      const commentsSource = `read_parquet('${R2_BASE_URL}/comments/agency/agency_code=${agency}/part-0.parquet')`;
 
       const exportPath = '/tmp/export.parquet';
 
