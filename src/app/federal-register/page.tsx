@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Virtuoso } from 'react-virtuoso';
 import { Loader2 } from 'lucide-react';
@@ -44,6 +44,11 @@ function FederalRegisterFeed() {
   const [initialLoading, setInitialLoading] = useState(true);
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  // Monotonic load token — lets a newer load discard a stale in-flight response
+  // (e.g. a fast filter switch) so it can't clobber the current filters. An
+  // in-flight flag blocks only the append path; a reset always supersedes.
+  const reqRef = useRef(0);
+  const inFlightRef = useRef(false);
 
   const [documentType, setDocumentType] = useFilterState<FRDocumentTypeFilter>(
     'type', FR_TYPE_KEY, '', isFRDocType,
@@ -68,11 +73,19 @@ function FederalRegisterFeed() {
   );
 
   const loadDocs = useCallback(async (reset = false) => {
-    if (!isReady || loading) return;
+    if (!isReady) return;
+    // Only the append path is blocked by an in-flight load; a reset (filter
+    // change) must always supersede so a fast filter switch isn't dropped.
+    if (!reset && inFlightRef.current) return;
+    const req = ++reqRef.current;
+    inFlightRef.current = true;
     try {
       setLoading(true);
       const newOffset = reset ? 0 : offset;
       const rows = await getRecentFederalRegister(PAGE_SIZE, newOffset, filters);
+      // A newer load started while we awaited — discard this stale response so
+      // it can't clobber the current filters.
+      if (req !== reqRef.current) return;
       if (reset) {
         setDocs(rows);
         setOffset(PAGE_SIZE);
@@ -82,12 +95,15 @@ function FederalRegisterFeed() {
       }
       setHasMore(rows.length === PAGE_SIZE);
     } catch (err) {
-      console.error('Failed to load Federal Register docs:', err);
+      if (req === reqRef.current) console.error('Failed to load Federal Register docs:', err);
     } finally {
-      setLoading(false);
-      setInitialLoading(false);
+      if (req === reqRef.current) {
+        inFlightRef.current = false;
+        setLoading(false);
+        setInitialLoading(false);
+      }
     }
-  }, [isReady, loading, offset, filters, getRecentFederalRegister]);
+  }, [isReady, offset, filters, getRecentFederalRegister]);
 
   // Reset + reload whenever filters change.
   useEffect(() => {

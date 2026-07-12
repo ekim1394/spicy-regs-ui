@@ -126,7 +126,7 @@ function buildFeedWhereClause(opts: FeedFilterOpts): string {
   const conditions: string[] = [];
 
   const upperAgency = agencyCode?.toUpperCase();
-  if (upperAgency) conditions.push(`agency_code = '${upperAgency}'`);
+  if (upperAgency) conditions.push(`agency_code = '${sqlStr(upperAgency)}'`);
 
   if (docketType === 'rule') {
     conditions.push(`docket_type = 'Rulemaking'`);
@@ -321,10 +321,10 @@ export function useDuckDBService() {
       const conditions: string[] = [];
       const upperAgency = agencyCode?.toUpperCase();
       if (upperAgency) {
-        conditions.push(`agency_code = '${upperAgency}'`);
+        conditions.push(`agency_code = '${sqlStr(upperAgency)}'`);
       }
       if (docketId) {
-        conditions.push(`docket_id = '${docketId.toUpperCase()}'`);
+        conditions.push(`docket_id = '${sqlStr(docketId.toUpperCase())}'`);
       }
 
       const whereClause =
@@ -368,8 +368,8 @@ export function useDuckDBService() {
 
       // For comments, use the index for fast counts without reading data files
       if (dataType === 'comments' && upperAgency) {
-        const conditions = [`agency_code = '${upperAgency}'`];
-        if (docketId) conditions.push(`docket_id = '${docketId.toUpperCase()}'`);
+        const conditions = [`agency_code = '${sqlStr(upperAgency)}'`];
+        if (docketId) conditions.push(`docket_id = '${sqlStr(docketId.toUpperCase())}'`);
         const query = `SELECT COALESCE(CAST(SUM(row_count) AS BIGINT), 0) as count FROM ${commentsIndexRef()} WHERE ${conditions.join(' AND ')}`;
         const result = await runQuery<{ count: number }>(query);
         return Number(result[0]?.count ?? 0);
@@ -377,10 +377,10 @@ export function useDuckDBService() {
 
       const conditions: string[] = [];
       if (upperAgency) {
-        conditions.push(`agency_code = '${upperAgency}'`);
+        conditions.push(`agency_code = '${sqlStr(upperAgency)}'`);
       }
       if (docketId) {
-        conditions.push(`docket_id = '${docketId.toUpperCase()}'`);
+        conditions.push(`docket_id = '${sqlStr(docketId.toUpperCase())}'`);
       }
 
       const whereClause =
@@ -415,7 +415,7 @@ export function useDuckDBService() {
     async (agencyCode: string): Promise<string[]> => {
       if (!isReady) throw new Error("DuckDB not ready");
 
-      const query = `SELECT DISTINCT docket_id FROM ${parquetRef("dockets" as RegulationsDataTypes)} WHERE agency_code = '${agencyCode.toUpperCase()}' ORDER BY docket_id DESC`;
+      const query = `SELECT DISTINCT docket_id FROM ${parquetRef("dockets" as RegulationsDataTypes)} WHERE agency_code = '${sqlStr(agencyCode.toUpperCase())}' ORDER BY docket_id DESC`;
       const result = await runQuery<{ docket_id: string }>(query);
       return result.map((r) => r.docket_id);
     },
@@ -429,8 +429,7 @@ export function useDuckDBService() {
     async (docketId: string): Promise<Record<string, any> | null> => {
       if (!isReady) throw new Error("DuckDB not ready");
 
-      const escaped = docketId.replace(/'/g, "''");
-      const query = `SELECT * FROM ${parquetRef("dockets" as RegulationsDataTypes)} WHERE docket_id = '${escaped}' LIMIT 1`;
+      const query = `SELECT * FROM ${parquetRef("dockets" as RegulationsDataTypes)} WHERE docket_id = '${sqlStr(docketId)}' LIMIT 1`;
       const results = await runQuery<Record<string, any>>(query);
       return results[0] || null;
     },
@@ -566,7 +565,7 @@ export function useDuckDBService() {
         SELECT document_id, title, document_type, posted_date,
                comment_start_date, comment_end_date, file_url
         FROM ${parquetRef("documents" as RegulationsDataTypes)}
-        WHERE docket_id = '${cleanId}'
+        WHERE docket_id = '${sqlStr(cleanId)}'
         ORDER BY posted_date DESC
         LIMIT ${limit}
       `;
@@ -588,7 +587,7 @@ export function useDuckDBService() {
       if (!isReady || docketIds.length === 0) return {};
 
       const cleanIds = docketIds.map(id => id.replace(/^"|"$/g, '').toUpperCase());
-      const inClause = cleanIds.map(id => `'${id}'`).join(',');
+      const inClause = cleanIds.map(id => `'${sqlStr(id)}'`).join(',');
 
       const rows = await runQuery<{ did: string; cnt: number }>(`
         SELECT docket_id as did, CAST(SUM(row_count) AS BIGINT) as cnt

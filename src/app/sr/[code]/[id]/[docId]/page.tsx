@@ -1,16 +1,18 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { PageShell } from '@/components/ui/PageShell';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { SectionLabel } from '@/components/ui/SectionLabel';
+import { QueryErrorCard } from '@/components/ui/QueryErrorCard';
 import { DocumentDetail } from '@/components/document/DocumentDetail';
 import { AttachmentsTable, type Attachment } from '@/components/document/AttachmentsTable';
 import { DemoCallout } from '@/components/document/DemoCallout';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
+import { useAsyncData } from '@/lib/hooks/useAsyncData';
 import { Loader2 } from 'lucide-react';
 import { stripQuotes } from '@/lib/utils/fieldFormat';
 import { usePageTitle } from '@/lib/hooks/usePageTitle';
@@ -21,23 +23,13 @@ export default function DocumentPage() {
   const docketIdParam = decodeURIComponent((params.id as string) || '').toUpperCase();
   const docId = decodeURIComponent((params.docId as string) || '');
 
-  const { getDocumentById, isReady } = useDuckDBService();
-  const [doc, setDoc] = useState<Record<string, any> | null>(null);
-  const [loading, setLoading] = useState(true);
+  const { getDocumentById } = useDuckDBService();
+  const { data: doc, isLoading, error, refetch } = useAsyncData(
+    () => getDocumentById(docId), [docId], { enabled: !!docId },
+  );
 
   // Null while loading so the bare brand shows until the document resolves.
   usePageTitle(doc ? stripQuotes(doc.title) || docId : null);
-
-  useEffect(() => {
-    if (!isReady || !docId) return;
-    // Clear stale state so navigating between documents shows the loading
-    // spinner instead of the previous document.
-    setLoading(true);
-    setDoc(null);
-    getDocumentById(docId)
-      .then((result) => { setDoc(result); setLoading(false); })
-      .catch((err) => { console.error('Failed to load document:', err); setLoading(false); });
-  }, [isReady, docId, getDocumentById]);
 
   const attachments = useMemo<Attachment[]>(() => {
     const url = stripQuotes(doc?.file_url);
@@ -47,7 +39,17 @@ export default function DocumentPage() {
     return [{ name, type, url }];
   }, [doc]);
 
-  if (loading) {
+  if (error) {
+    return (
+      <PageShell maxWidth="4xl" mainClassName="w-full max-w-4xl mx-auto px-4 py-16">
+        <QueryErrorCard message="Couldn't load this document." error={error} onRetry={refetch} />
+      </PageShell>
+    );
+  }
+
+  // `undefined` = still resolving (engine warming up or fetch in flight);
+  // `null` = resolved but no such document.
+  if (isLoading || doc === undefined) {
     return (
       <PageShell mainClassName="flex justify-center py-24">
         <Loader2 size={32} className="animate-spin text-[var(--accent-primary)]" />

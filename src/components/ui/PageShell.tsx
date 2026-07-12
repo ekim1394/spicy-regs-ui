@@ -1,6 +1,10 @@
+'use client';
+
 import * as React from 'react';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
+import { DuckDBInitError } from '@/components/DuckDBInitError';
+import { useDuckDB } from '@/lib/duckdb/context';
 
 /**
  * Standard page chrome: sticky Header, full-height tinted background, a centered
@@ -44,10 +48,15 @@ export function PageShell({
   // content is narrow (e.g. an empty filter result). Callers' mainClassName
   // overrides still apply, and should include `w-full` themselves if centered.
   const mainCls = `flex-1 ${mainClassName ?? `w-full ${MAX_W_CLASS[maxWidth]} mx-auto px-4 py-6`}`;
+  // When DuckDB-WASM fails to initialize, no data page can render meaningfully —
+  // show the recovery card in place of content from this single point instead of
+  // letting every child spin forever. (Init failure is context state, not a
+  // React render error, so error.tsx can't catch it.)
+  const { error: initError } = useDuckDB();
   return (
     <div className={`min-h-screen flex flex-col bg-[var(--background)] ${className}`}>
       <Header />
-      <main className={mainCls}>{children}</main>
+      <main className={mainCls}>{initError ? <DuckDBInitError /> : children}</main>
       <Footer />
     </div>
   );

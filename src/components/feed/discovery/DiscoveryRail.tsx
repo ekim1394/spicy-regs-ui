@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
+import { useAsyncData } from '@/lib/hooks/useAsyncData';
 import { SectionLabel } from '@/components/ui/SectionLabel';
 import { flattenSignals, type DiscoverySignal } from './signals';
 import { SignalCard } from './SignalCard';
@@ -27,20 +28,19 @@ interface DiscoveryRailProps {
  * away from the start — so the affordance is only shown when it's actually true.
  */
 export function DiscoveryRail({ filtersActive = false }: DiscoveryRailProps) {
-  const { getDiscoverySignals, isReady } = useDuckDBService();
-  const [signals, setSignals] = useState<DiscoverySignal[]>([]);
+  const { getDiscoverySignals } = useDuckDBService();
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [showStart, setShowStart] = useState(false);
   const [showEnd, setShowEnd] = useState(false);
 
-  useEffect(() => {
-    if (!isReady || filtersActive) return;
-    let cancelled = false;
-    getDiscoverySignals()
-      .then((result) => { if (!cancelled) setSignals(flattenSignals(result)); })
-      .catch((err) => console.error('DiscoveryRail:', err));
-    return () => { cancelled = true; };
-  }, [isReady, filtersActive, getDiscoverySignals]);
+  // Fail-soft shelf: on error the rail just hides (like the empty-signals case),
+  // so no error card — it's a discovery aid, not core content.
+  const { data: signalData } = useAsyncData<DiscoverySignal[]>(
+    () => getDiscoverySignals().then(flattenSignals),
+    [],
+    { enabled: !filtersActive, placeholderData: [] },
+  );
+  const signals = signalData ?? [];
 
   const updateEdges = useCallback(() => {
     const el = scrollerRef.current;

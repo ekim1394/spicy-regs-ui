@@ -1,21 +1,23 @@
 'use client';
 
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useMemo, Suspense } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { PageShell } from '@/components/ui/PageShell';
 import { Card } from '@/components/ui/Card';
 import { SectionLabel } from '@/components/ui/SectionLabel';
+import { QueryErrorCard } from '@/components/ui/QueryErrorCard';
 import { Tabs, TabsList, TabsTrigger, TabsContent, useTabParam } from '@/components/ui/Tabs';
 import { DocketHeader } from '@/components/docket/DocketHeader';
 import { LifecycleTimeline } from '@/components/docket/LifecycleTimeline';
-import { CommentBreakdown, type CommentBreakdownData } from '@/components/docket/CommentBreakdown';
+import { CommentBreakdown } from '@/components/docket/CommentBreakdown';
 import { DocumentList } from '@/components/feed/DocumentList';
 import { ThreadedComments } from '@/components/feed/ThreadedComments';
 import { RelatedDockets } from '@/components/feed/RelatedDockets';
 import { RelatedFederalRegister } from '@/components/feed/RelatedFederalRegister';
 import { AgencyIdentity } from '@/components/agency/AgencyIdentity';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
+import { useAsyncData } from '@/lib/hooks/useAsyncData';
 import { Loader2, ExternalLink } from 'lucide-react';
 import { stripQuotes } from '@/lib/utils/fieldFormat';
 import { usePageTitle } from '@/lib/hooks/usePageTitle';
@@ -23,6 +25,10 @@ import { usePageTitle } from '@/lib/hooks/usePageTitle';
 type DocketTab = 'overview' | 'documents' | 'comments';
 const isDocketTab = (raw: string): raw is DocketTab =>
   raw === 'overview' || raw === 'documents' || raw === 'comments';
+
+// Stable empty array so the commentPeriod memo below doesn't recompute on every
+// render while documents are still loading.
+const NO_DOCUMENTS: any[] = [];
 
 function DocketDetailInner() {
   const params = useParams();
@@ -35,80 +41,29 @@ function DocketDetailInner() {
     getDocumentsForDocket,
     getCommentCounts,
     getCommentVolumeAndClusters,
-    isReady,
   } = useDuckDBService();
 
   const [tab, setTab] = useTabParam<DocketTab>('overview', isDocketTab);
 
-  const [docket, setDocket] = useState<Record<string, any> | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [documents, setDocuments] = useState<any[]>([]);
-  const [docsLoading, setDocsLoading] = useState(true);
-  const [commentCount, setCommentCount] = useState<number | undefined>();
+  const docketQ = useAsyncData(() => getDocketById(docketId), [docketId], { enabled: !!docketId });
+  const docsQ = useAsyncData(() => getDocumentsForDocket(docketId), [docketId], { enabled: !!docketId });
+  const countQ = useAsyncData(
+    () => getCommentCounts([docketId]).then((c) => c[docketId.toUpperCase()] ?? 0),
+    [docketId],
+    { enabled: !!docketId },
+  );
+  // Lazy: only fetched once the page is on the Overview tab (the hook's own
+  // stale guard replaces the old reset-on-docket-change effect).
+  const aggregateQ = useAsyncData(
+    () => getCommentVolumeAndClusters(docketId, 'near'),
+    [docketId],
+    { enabled: !!docketId && tab === 'overview' },
+  );
 
-  // Overview comment aggregate (lazy: computed the first time the page lands on
-  // the Overview tab). Near-duplicate clustering powers the breakdown.
-  const [aggregate, setAggregate] = useState<CommentBreakdownData | null>(null);
-
-  useEffect(() => {
-    if (!isReady || !docketId) return;
-    // Clear stale state so navigating between dockets on this route segment
-    // shows the loading spinner instead of the previous docket's content.
-    setLoading(true);
-    setDocket(null);
-    getDocketById(docketId)
-      .then((result) => { setDocket(result); setLoading(false); })
-      .catch((err) => { console.error('Failed to load docket:', err); setLoading(false); });
-  }, [isReady, docketId, getDocketById]);
-
-  useEffect(() => {
-    if (!isReady || !docketId) return;
-    setDocsLoading(true);
-    setDocuments([]);
-    getDocumentsForDocket(docketId)
-      .then((docs) => { setDocuments(docs); setDocsLoading(false); })
-      .catch((err) => { console.error('Failed to load documents:', err); setDocsLoading(false); });
-  }, [isReady, docketId, getDocumentsForDocket]);
-
-  useEffect(() => {
-    if (!isReady || !docketId) return;
-    setCommentCount(undefined);
-    getCommentCounts([docketId])
-      .then((counts) => setCommentCount(counts[docketId.toUpperCase()] ?? 0))
-      .catch((err) => console.error('Failed to load comment count:', err));
-  }, [isReady, docketId, getCommentCounts]);
-
-  // Reset the lazy aggregate when the docket changes, so navigating between
-  // dockets on this route segment can't show the previous docket's breakdown
-  // (the lazy guard below keys off `aggregate === null`).
-  useEffect(() => {
-    setAggregate(null);
-  }, [docketId]);
-
-  // Lazy-load the Overview comment breakdown the first time that tab is shown.
-  // One round-trip returns the daily volume, totals, and near-duplicate
-  // clusters that drive the orchestration read.
-  useEffect(() => {
-    if (!isReady || !docketId || tab !== 'overview' || aggregate !== null) return;
-    let cancelled = false;
-    getCommentVolumeAndClusters(docketId, 'near')
-      .then((res) => {
-        if (cancelled) return;
-        setAggregate(res);
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        console.error('Failed to load comment analytics:', err);
-        setAggregate({
-          totals: { total: 0, unique: 0, empty: 0 },
-          volumeByDay: [],
-          clusters: [],
-          commentStartDate: null,
-          commentEndDate: null,
-        });
-      });
-    return () => { cancelled = true; };
-  }, [isReady, docketId, tab, aggregate, getCommentVolumeAndClusters]);
+  const docket = docketQ.data;
+  const documents = docsQ.data ?? NO_DOCUMENTS;
+  const commentCount = countQ.data;
+  const aggregate = aggregateQ.data ?? null;
 
   // e.g. "Definition of an Investment Advice Fiduciary (Docket EBSA-2023-0014)".
   // Null while loading so the bare brand shows until the docket resolves.
@@ -128,7 +83,16 @@ function DocketDetailInner() {
     return { start, end };
   }, [documents]);
 
-  if (loading) {
+  if (docketQ.error) {
+    return (
+      <PageShell maxWidth="4xl" mainClassName="w-full max-w-4xl mx-auto px-4 py-16">
+        <QueryErrorCard message="Couldn't load this docket." error={docketQ.error} onRetry={docketQ.refetch} />
+      </PageShell>
+    );
+  }
+
+  // `undefined` = still resolving; `null` = resolved but no such docket.
+  if (docketQ.isLoading || docket === undefined) {
     return (
       <PageShell mainClassName="flex justify-center py-24">
         <Loader2 size={32} className="animate-spin text-[var(--accent-primary)]" />
@@ -196,7 +160,13 @@ function DocketDetailInner() {
 
               {commentCount !== 0 && (
                 <section>
-                  {aggregate === null ? (
+                  {aggregateQ.error ? (
+                    <QueryErrorCard
+                      message="Couldn't load the comment breakdown."
+                      error={aggregateQ.error}
+                      onRetry={aggregateQ.refetch}
+                    />
+                  ) : aggregate === null ? (
                     <Card interactive={false} className="flex justify-center py-8">
                       <Loader2 size={20} className="animate-spin text-[var(--accent-primary)]" />
                     </Card>
@@ -232,14 +202,22 @@ function DocketDetailInner() {
             {/* Documents — the tab itself is the heading, so the panel carries
                 no redundant section label (unlike Overview's multi-section stack). */}
             <TabsContent value="documents" className="pt-5">
-              <Card interactive={false} className="p-4">
-                <DocumentList
-                  documents={documents}
-                  loading={docsLoading}
-                  agencyCode={agencyCode}
-                  docketId={docketId}
+              {docsQ.error ? (
+                <QueryErrorCard
+                  message="Couldn't load documents for this docket."
+                  error={docsQ.error}
+                  onRetry={docsQ.refetch}
                 />
-              </Card>
+              ) : (
+                <Card interactive={false} className="p-4">
+                  <DocumentList
+                    documents={documents}
+                    loading={docsQ.isLoading || docsQ.data === undefined}
+                    agencyCode={agencyCode}
+                    docketId={docketId}
+                  />
+                </Card>
+              )}
             </TabsContent>
 
             {/* Comments */}

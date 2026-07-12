@@ -12,6 +12,7 @@ import { FederalRegisterPost } from '@/components/feed/FederalRegisterPost';
 import { FeedFilters } from '@/components/feed/FeedFilters';
 import { DiscoveryRail } from '@/components/feed/discovery/DiscoveryRail';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
+import { useAsyncData } from '@/lib/hooks/useAsyncData';
 import { useFilterState } from '@/lib/hooks/useFilterState';
 import {
   DATE_STORAGE_KEY,
@@ -63,9 +64,6 @@ function DocketFeed() {
   const [docketHasMore, setDocketHasMore] = useState(true);
   const [frHasMore, setFrHasMore] = useState(true);
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
-  // Total matching dockets for the active filters — drives the feed header count.
-  // Null until the first count resolves so we don't flash a "0 dockets".
-  const [totalCount, setTotalCount] = useState<number | null>(null);
   // Monotonic load token — lets a newer load() discard a stale in-flight response.
   const reqRef = useRef(0);
   // Tracks whether a load is in flight without making `load` depend on `loading`.
@@ -182,23 +180,20 @@ function DocketFeed() {
 
   // Total matching-docket count for the header. Mirrors the feed's filters
   // (sort matters: open/closed change membership). FR rows aren't counted —
-  // the header reads "N dockets". A stale-token guard keeps a fast filter
-  // switch from leaving an out-of-date number.
-  useEffect(() => {
-    if (!isReady) return;
-    let cancelled = false;
-    setTotalCount(null);
-    getFeedCount({
+  // the header reads "N dockets". useAsyncData's stale-token guard keeps a fast
+  // filter switch from leaving an out-of-date number; on error the count is
+  // simply omitted (null) rather than surfacing an error card in the header.
+  const { data: feedCount } = useAsyncData(
+    () => getFeedCount({
       agencyCode: selectedAgency || undefined,
       sortBy,
       dateRange: dateRange || undefined,
       docketType: docketType || undefined,
       topic: topic || undefined,
-    })
-      .then((n) => { if (!cancelled) setTotalCount(n); })
-      .catch((err) => console.error('Failed to load feed count:', err));
-    return () => { cancelled = true; };
-  }, [isReady, selectedAgency, sortBy, dateRange, docketType, topic, getFeedCount]);
+    }),
+    [selectedAgency, sortBy, dateRange, docketType, topic],
+  );
+  const totalCount = feedCount ?? null;
 
   // De-duplicate dockets by id.
   const uniqueDockets = useMemo(() => {
