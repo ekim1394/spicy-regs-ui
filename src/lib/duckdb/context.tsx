@@ -1,7 +1,7 @@
 "use client";
 
 import * as duckdb from "@duckdb/duckdb-wasm";
-import { get as idbGet, set as idbSet } from "idb-keyval";
+import { get as idbGet, set as idbSet, del as idbDel, keys as idbKeys, delMany as idbDelMany } from "idb-keyval";
 import {
   createContext,
   useContext,
@@ -44,6 +44,42 @@ const qKey = (sql: string) => `q:${QCACHE_VERSION}:${sql}`;
 
 type CacheEntry = { expires: number; rows: unknown[] };
 
+/**
+ * Runtime shape check for a value read back from IndexedDB. An old deploy (or a
+ * forgotten {@link QCACHE_VERSION} bump) can leave an entry whose shape no
+ * longer matches {@link CacheEntry}; treating that as valid would feed malformed
+ * rows into consumers. On mismatch we discard the entry and fall through to a
+ * live query, so stale shapes self-heal instead of crashing a page.
+ */
+function isValidCacheEntry(v: unknown): v is CacheEntry {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    typeof (v as CacheEntry).expires === "number" &&
+    Array.isArray((v as CacheEntry).rows)
+  );
+}
+
+/**
+ * Clear the query cache in every tier: the in-memory map, any in-flight
+ * de-dupe entries, and every persisted `q:*` key in IndexedDB. Consumed by the
+ * global error boundary's "Try again" so a poisoned cached row can't
+ * immediately re-crash the re-rendered tree.
+ */
+export async function clearQueryCache(): Promise<void> {
+  memCache.clear();
+  inflight.clear();
+  try {
+    const all = await idbKeys();
+    const stale = all.filter(
+      (k): k is string => typeof k === "string" && k.startsWith("q:"),
+    );
+    if (stale.length > 0) await idbDelMany(stale);
+  } catch {
+    // IndexedDB unavailable — the in-memory clear above is the meaningful part.
+  }
+}
+
 // Module-level so the cache survives component remounts and is shared across
 // every hook consumer for the life of the page (the SPA never reloads the
 // provider). Keyed by the exact SQL string, which encodes all parameters.
@@ -73,8 +109,12 @@ async function cachedQuery<T>(
   const p = (async (): Promise<unknown[]> => {
     if (persist) {
       try {
-        const cached = await idbGet<CacheEntry>(qKey(sql));
-        if (cached && cached.expires > Date.now()) {
+        const cached = await idbGet<unknown>(qKey(sql));
+        if (cached !== undefined && !isValidCacheEntry(cached)) {
+          // Shape from an older deploy (e.g. a missed QCACHE_VERSION bump) —
+          // discard it and fall through to a live query so it self-heals.
+          void idbDel(qKey(sql)).catch(() => {});
+        } else if (cached && cached.expires > Date.now()) {
           memCache.set(sql, cached);
           return cached.rows;
         }
@@ -108,6 +148,8 @@ interface DuckDBContextValue {
     sql: string,
     opts?: CacheOpts,
   ) => Promise<T[]>;
+  /** Re-attempt DuckDB initialization after an init failure (e.g. jsDelivr down). */
+  retryInit: () => void;
 }
 
 const DuckDBContext = createContext<DuckDBContextValue | null>(null);
@@ -164,6 +206,8 @@ export function DuckDBProvider({ children }: { children: ReactNode }) {
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const initRef = useRef(false);
+  // Bumped by retryInit() to re-run the init effect after a failure.
+  const [initAttempt, setInitAttempt] = useState(0);
   // Round-robin cursor over the connection pool.
   const rrRef = useRef(0);
 
@@ -179,9 +223,21 @@ export function DuckDBProvider({ children }: { children: ReactNode }) {
       })
       .catch((err) => {
         console.error("[DuckDB-WASM] Initialization failed:", err);
-        setError(err);
+        setError(err instanceof Error ? err : new Error(String(err)));
       });
-  }, []);
+  }, [initAttempt]);
+
+  /**
+   * Re-attempt initialization after a failure. Resets the one-shot init guard
+   * and clears the prior error so the effect above runs a fresh attempt. Safe to
+   * ignore once ready — it no-ops if init already succeeded.
+   */
+  const retryInit = useCallback(() => {
+    if (isReady) return;
+    initRef.current = false;
+    setError(null);
+    setInitAttempt((n) => n + 1);
+  }, [isReady]);
 
   const runQuery = useCallback(
     async <T = Record<string, unknown>>(sql: string): Promise<T[]> => {
@@ -218,6 +274,7 @@ export function DuckDBProvider({ children }: { children: ReactNode }) {
         error,
         runQuery,
         runCachedQuery,
+        retryInit,
       }}
     >
       {children}

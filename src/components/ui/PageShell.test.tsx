@@ -8,6 +8,12 @@ vi.mock('@/components/Header', () => ({
   Header: () => <header data-testid="mock-header">Header</header>,
 }));
 
+// PageShell reads useDuckDB() to swap in the init-error card on failure; stub
+// it as "no error" so the shell renders its children normally.
+vi.mock('@/lib/duckdb/context', () => ({
+  useDuckDB: () => ({ error: null, retryInit: () => {} }),
+}));
+
 describe('PageShell', () => {
   it('renders Header and children inside <main>', () => {
     render(

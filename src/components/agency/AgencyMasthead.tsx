@@ -1,18 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/Card';
 import { Avatar } from '@/components/ui/Avatar';
 import { Button } from '@/components/ui/Button';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
+import { useAsyncData } from '@/lib/hooks/useAsyncData';
 import { getAgencyInfo, getParentDept, formatCount } from '@/lib/agencyMetadata';
-
-interface AgencyStats {
-  docketCount: number;
-  documentCount: number;
-  commentCount: number;
-}
 
 export interface AgencyMastheadProps {
   /** Agency code, e.g. "EPA". */
@@ -33,17 +28,12 @@ export function AgencyMasthead({ agencyCode }: AgencyMastheadProps) {
   const agency = useMemo(() => getAgencyInfo(agencyCode), [agencyCode]);
   const dept = useMemo(() => getParentDept(agencyCode), [agencyCode]);
 
-  const { getAgencyStats, isReady } = useDuckDBService();
-  const [stats, setStats] = useState<AgencyStats | undefined>();
-
-  useEffect(() => {
-    if (!isReady || !agencyCode) return;
-    let cancelled = false;
-    getAgencyStats(agencyCode)
-      .then((s) => { if (!cancelled) setStats(s); })
-      .catch((err) => console.error('AgencyMasthead stats:', err));
-    return () => { cancelled = true; };
-  }, [isReady, agencyCode, getAgencyStats]);
+  const { getAgencyStats } = useDuckDBService();
+  // Stats degrade gracefully to "—" while loading or on error — the masthead is
+  // an identity band, so a failed count shouldn't blow up the header layout.
+  const { data: stats } = useAsyncData(
+    () => getAgencyStats(agencyCode), [agencyCode], { enabled: !!agencyCode },
+  );
 
   return (
     <Card variant="gradient" className="overflow-hidden mb-8">
