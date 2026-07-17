@@ -43,6 +43,12 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${ebGaramond.variable} ${inter.variable} ${firaCode.variable}`}>
       <body className={"antialiased"}>
+        {/* Warm the two cross-origins every data route depends on: the
+            DuckDB-WASM bundle (jsDelivr) and the R2 parquet corpus. Both are
+            fetched anonymously under COEP: credentialless, so the preconnect
+            must be crossOrigin="anonymous" to reuse the connection. */}
+        <link rel="preconnect" href="https://cdn.jsdelivr.net" crossOrigin="anonymous" />
+        <link rel="preconnect" href="https://r2.spicy-regs.dev" crossOrigin="anonymous" />
         <DuckDBProvider>
           {children}
         </DuckDBProvider>

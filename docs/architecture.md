@@ -3,7 +3,7 @@
 Each page runs SQL in DuckDB-WASM against the Parquet mirror on R2, in the browser. There's
 no server, so every viewer re-runs every scan and nothing's cached between sessions. Two
 things cost real time: the queries that fall through to the big files (`documents.parquet`
-~57 MB, the multi-GB comment partitions, `federal_register.parquet` ~793K rows) on every
+~80 MB, the multi-GB comment partitions, `federal_register.parquet` ~793K rows / ~140 MB) on every
 load, and the per-row text work the browser does live because the derived columns don't
 exist yet. Each item below names the method in
 [`useDuckDBService`](../src/lib/duckdb/useDuckDBService.ts) that runs it.
