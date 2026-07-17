@@ -1,6 +1,6 @@
 "use client";
 
-import * as duckdb from "@duckdb/duckdb-wasm";
+import type * as duckdb from "@duckdb/duckdb-wasm";
 import { get as idbGet, set as idbSet, del as idbDel, keys as idbKeys, delMany as idbDelMany } from "idb-keyval";
 import {
   createContext,
@@ -150,6 +150,11 @@ interface DuckDBContextValue {
   ) => Promise<T[]>;
   /** Re-attempt DuckDB initialization after an init failure (e.g. jsDelivr down). */
   retryInit: () => void;
+  /**
+   * Kick off WASM init (idempotent). Called automatically by {@link useDuckDB}
+   * on consumer mount — content routes with no DuckDB consumer never init.
+   */
+  start: () => void;
 }
 
 const DuckDBContext = createContext<DuckDBContextValue | null>(null);
@@ -158,6 +163,11 @@ async function initDuckDB(): Promise<{
   db: duckdb.AsyncDuckDB;
   conns: duckdb.AsyncDuckDBConnection[];
 }> {
+  // Loaded on demand: keeps the ~44KB (gzip) duckdb-wasm JS out of every
+  // route's first-load bundle; only routes that mount a DuckDB consumer pay
+  // for it (and for the multi-MB WASM fetch it triggers).
+  const duckdb = await import("@duckdb/duckdb-wasm");
+
   // Use CDN bundles for reliability
   const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
 
@@ -170,9 +180,13 @@ async function initDuckDB(): Promise<{
     })
   );
 
-  // Create the worker and logger
+  // Create the worker and logger. ConsoleLogger logs every worker event at
+  // INFO on the main thread — dev-only.
   const worker = new Worker(worker_url);
-  const logger = new duckdb.ConsoleLogger();
+  const logger =
+    process.env.NODE_ENV === "development"
+      ? new duckdb.ConsoleLogger()
+      : new duckdb.VoidLogger();
 
   // Instantiate DuckDB
   const db = new duckdb.AsyncDuckDB(logger, worker);
@@ -211,7 +225,11 @@ export function DuckDBProvider({ children }: { children: ReactNode }) {
   // Round-robin cursor over the connection pool.
   const rrRef = useRef(0);
 
-  useEffect(() => {
+  // Init is NOT started at provider mount (the provider wraps every route,
+  // including static content pages like /about that never query). The first
+  // useDuckDB() consumer to mount calls start() — for data routes that's
+  // during initial hydration, the same moment the old eager effect fired.
+  const start = useCallback(() => {
     if (initRef.current) return;
     initRef.current = true;
 
@@ -275,6 +293,7 @@ export function DuckDBProvider({ children }: { children: ReactNode }) {
         runQuery,
         runCachedQuery,
         retryInit,
+        start,
       }}
     >
       {children}
@@ -287,6 +306,10 @@ export function useDuckDB() {
   if (!context) {
     throw new Error("useDuckDB must be used within a DuckDBProvider");
   }
+  const { start } = context;
+  useEffect(() => {
+    start();
+  }, [start]);
   return context;
 }
 

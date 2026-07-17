@@ -266,6 +266,21 @@ function sqlCommentWindowOpen(open: boolean): string {
  */
 const ROLLUP_CACHE = { ttlMs: 6 * 60 * 60 * 1000, persist: true } as const;
 
+/**
+ * Cache preset for per-entity detail reads (one docket's row, its document
+ * list, its comment counts). Stable within a session — the underlying files
+ * change roughly daily — but keyed per entity, so in-memory only to keep
+ * IndexedDB from accumulating one entry per docket ever visited.
+ */
+const DETAIL_CACHE = { ttlMs: 30 * 60 * 1000 } as const;
+
+/**
+ * Cache preset for filtered/paginated list reads (feed variants, FR browse).
+ * Short enough that filter exploration stays fresh, long enough that
+ * back-navigation and re-renders don't re-scan a multi-MB file.
+ */
+const LIST_CACHE = { ttlMs: 10 * 60 * 1000 } as const;
+
 export function useDuckDBService() {
   const { runQuery, runCachedQuery, isReady } = useDuckDB();
 
@@ -292,15 +307,18 @@ export function useDuckDBService() {
         ? `docket_id = '${sqlStr(docketId)}'`
         : `agency_code = '${sqlStr(agencyCode)}'`;
 
-      const rows = await runQuery<{ agency_code: string }>(
-        `SELECT DISTINCT agency_code FROM ${commentsIndexRef()} WHERE ${where}`
+      // Cached: the same docket's source is resolved by the Overview tab, the
+      // Comments tab, and the volume queries — one index read serves all.
+      const rows = await runCachedQuery<{ agency_code: string }>(
+        `SELECT DISTINCT agency_code FROM ${commentsIndexRef()} WHERE ${where}`,
+        DETAIL_CACHE
       );
       const agency = rows[0]?.agency_code ? stripQuotes(rows[0].agency_code) : null;
       if (!agency) return null;
 
       return commentsMirrorRef(agency);
     },
-    [runQuery]
+    [runCachedQuery]
   );
 
   /**
@@ -430,10 +448,12 @@ export function useDuckDBService() {
       if (!isReady) throw new Error("DuckDB not ready");
 
       const query = `SELECT * FROM ${parquetRef("dockets" as RegulationsDataTypes)} WHERE docket_id = '${sqlStr(docketId)}' LIMIT 1`;
-      const results = await runQuery<Record<string, any>>(query);
+      // Cached: dockets.parquet (~14MB) is unsorted by docket_id, so this is a
+      // near-full scan — don't re-pay it on tab switches and back-navigation.
+      const results = await runCachedQuery<Record<string, any>>(query, DETAIL_CACHE);
       return results[0] || null;
     },
-    [runQuery, isReady]
+    [runCachedQuery, isReady]
   );
 
   /**
@@ -479,7 +499,13 @@ export function useDuckDBService() {
         LIMIT ${limit} OFFSET ${offset}
       `;
 
-      const rows = await runQuery<any>(query);
+      // The default first page (no filters, recent sort) is identical for
+      // every visitor and NOW()-free — persist it so reloads and return
+      // visits skip the ~14MB feed_summary scan entirely. Filtered/paginated
+      // variants cache in-memory only (each distinct SQL keys its own entry).
+      const isDefaultShape =
+        !agencyCode && sortBy === 'recent' && !dateRange && !docketType && !topic && offset === 0;
+      const rows = await runCachedQuery<any>(query, isDefaultShape ? ROLLUP_CACHE : LIST_CACHE);
 
       const commentCounts: Record<string, number> = {};
       const dockets = rows.map((row: any) => {
@@ -490,7 +516,7 @@ export function useDuckDBService() {
 
       return { dockets, commentCounts };
     },
-    [runQuery, isReady]
+    [runCachedQuery, isReady]
   );
 
   /**
@@ -503,10 +529,18 @@ export function useDuckDBService() {
       if (!isReady) throw new Error("DuckDB not ready");
       const whereClause = buildFeedWhereClause(opts);
       const query = `SELECT COUNT(*) AS count FROM ${feedSummaryRef()} ${whereClause}`;
-      const rows = await runQuery<{ count: number }>(query);
+      // Same policy as getRecentDocketsWithCounts: persist the shared default
+      // count, in-memory for filtered variants.
+      const isDefaultShape =
+        !opts.agencyCode && (opts.sortBy ?? 'recent') === 'recent' &&
+        !opts.dateRange && !opts.docketType && !opts.topic;
+      const rows = await runCachedQuery<{ count: number }>(
+        query,
+        isDefaultShape ? ROLLUP_CACHE : LIST_CACHE
+      );
       return Number(rows[0]?.count ?? 0);
     },
-    [runQuery, isReady]
+    [runCachedQuery, isReady]
   );
 
   /**
@@ -551,7 +585,9 @@ export function useDuckDBService() {
 
   /**
    * Get documents for a specific docket.
-   * Reads from documents.parquet (~57MB) with a docket_id filter.
+   * Reads from documents.parquet (~80MB) with a docket_id filter. The file is
+   * not sorted by docket_id, so this is the docket page's most expensive scan
+   * — cached so tab switches and back-navigation don't re-pay it.
    */
   const getDocumentsForDocket = useCallback(
     async (
@@ -569,9 +605,9 @@ export function useDuckDBService() {
         ORDER BY posted_date DESC
         LIMIT ${limit}
       `;
-      return runQuery(query);
+      return runCachedQuery(query, DETAIL_CACHE);
     },
-    [runQuery, isReady]
+    [runCachedQuery, isReady]
   );
 
   /**
@@ -589,12 +625,12 @@ export function useDuckDBService() {
       const cleanIds = docketIds.map(id => id.replace(/^"|"$/g, '').toUpperCase());
       const inClause = cleanIds.map(id => `'${sqlStr(id)}'`).join(',');
 
-      const rows = await runQuery<{ did: string; cnt: number }>(`
+      const rows = await runCachedQuery<{ did: string; cnt: number }>(`
         SELECT docket_id as did, CAST(SUM(row_count) AS BIGINT) as cnt
         FROM ${commentsIndexRef()}
         WHERE docket_id IN (${inClause})
         GROUP BY docket_id
-      `);
+      `, DETAIL_CACHE);
 
       const result: Record<string, number> = {};
       for (const id of cleanIds) result[id] = 0;
@@ -603,7 +639,7 @@ export function useDuckDBService() {
       }
       return result;
     },
-    [runQuery, isReady]
+    [runCachedQuery, isReady]
   );
 
   /**
@@ -697,8 +733,10 @@ export function useDuckDBService() {
       if (!isReady) throw new Error("DuckDB not ready");
 
       const cleanId = docketId.replace(/^"|"$/g, '').toUpperCase();
-      const agencyRows = await runQuery<{ agency_code: string }>(
-        `SELECT DISTINCT agency_code FROM ${commentsIndexRef()} WHERE docket_id = '${sqlStr(cleanId)}'`
+      // Same SQL as buildCommentsSource's docket branch — shares its cache key.
+      const agencyRows = await runCachedQuery<{ agency_code: string }>(
+        `SELECT DISTINCT agency_code FROM ${commentsIndexRef()} WHERE docket_id = '${sqlStr(cleanId)}'`,
+        DETAIL_CACHE
       );
       const agency = agencyRows[0]?.agency_code ? stripQuotes(agencyRows[0].agency_code) : null;
       if (!agency) return [];
@@ -706,7 +744,7 @@ export function useDuckDBService() {
       const query = `SELECT * FROM ${commentsMirrorRef(agency)} WHERE docket_id = '${sqlStr(cleanId)}' ORDER BY posted_date DESC LIMIT 50000`;
       return runQuery(query);
     },
-    [runQuery, isReady]
+    [runQuery, runCachedQuery, isReady]
   );
 
   /**
@@ -760,10 +798,19 @@ export function useDuckDBService() {
         ${orderClause}
         LIMIT ${limit} OFFSET ${offset}
       `;
-      const rows = await runQuery<Record<string, unknown>>(query);
+      // federal_register.parquet is ~140MB — never re-scan it for a repeat
+      // page. The default first page (no filters, recent sort) is identical
+      // for every visitor and NOW()-free, so it persists across reloads.
+      const isDefaultShape =
+        offset === 0 && !filters.documentType && !filters.agencySlug &&
+        !filters.dateRange && (filters.sortBy ?? 'newest') !== 'comment-deadline';
+      const rows = await runCachedQuery<Record<string, unknown>>(
+        query,
+        isDefaultShape ? ROLLUP_CACHE : LIST_CACHE
+      );
       return rows.map(normalizeFRRow);
     },
-    [runQuery, isReady]
+    [runCachedQuery, isReady]
   );
 
   /**
@@ -825,10 +872,10 @@ export function useDuckDBService() {
         ORDER BY publication_date DESC NULLS LAST
         LIMIT ${limit} OFFSET ${offset}
       `;
-      // In-memory cache (no persist): each search full-scans the ~793K-row FR
-      // parquet, so caching keeps re-renders and repeated/back-and-forth
-      // searches from re-scanning. Bounded by a short TTL.
-      const rows = await runCachedQuery<Record<string, unknown>>(sql, { ttlMs: 10 * 60_000 });
+      // Persisted: each search full-scans the ~140MB FR parquet, so results
+      // survive reloads via IndexedDB. The corpus refreshes roughly daily;
+      // the 6h rollup TTL bounds staleness.
+      const rows = await runCachedQuery<Record<string, unknown>>(sql, ROLLUP_CACHE);
       return rows.map(normalizeFRRow);
     },
     [runCachedQuery, isReady]
@@ -905,13 +952,16 @@ export function useDuckDBService() {
       const cleanId = docketId.replace(/^"|"$/g, '').toUpperCase();
       const agency = cleanId.split('-')[0];
 
-      const commentsSource = await buildCommentsSource(agency, cleanId);
-
       // feed_summary carries the pre-joined comment_end_date from the
       // Proposed Rule document and is the authoritative answer for "when
       // did the comment period close." We fall back to dockets.parquet for
       // metadata if the docket isn't in feed_summary.
-      const metaRows = await runQuery<{ title: string; abstract: string; comment_end_date: string | null }>(`
+      //
+      // The source resolution and the metadata read are independent — run
+      // them together instead of as two serial R2 round-trips.
+      const [commentsSource, metaRows] = await Promise.all([
+        buildCommentsSource(agency, cleanId),
+        runCachedQuery<{ title: string; abstract: string; comment_end_date: string | null }>(`
         WITH fs AS (
           SELECT title, abstract, comment_end_date
           FROM ${feedSummaryRef()}
@@ -928,7 +978,8 @@ export function useDuckDBService() {
         UNION ALL
         SELECT * FROM dk WHERE NOT EXISTS (SELECT 1 FROM fs)
         LIMIT 1
-      `);
+      `, DETAIL_CACHE),
+      ]);
       const docketTitle = stripQuotes(metaRows[0]?.title);
       const docketAbstract = stripQuotes(metaRows[0]?.abstract);
       const commentEndDate = metaRows[0]?.comment_end_date
@@ -1028,7 +1079,7 @@ export function useDuckDBService() {
         })),
       };
     },
-    [runQuery, isReady, buildCommentsSource]
+    [runQuery, runCachedQuery, isReady, buildCommentsSource]
   );
 
   /**
