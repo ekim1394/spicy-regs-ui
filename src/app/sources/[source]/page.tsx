@@ -2,7 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { Virtuoso } from 'react-virtuoso';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 
@@ -27,9 +27,12 @@ function SourceBrowser({ def }: { def: SourceDef }) {
   const { sort, setSort, filterValues, setFilter } = useSourceParams(def);
 
   // Search input debounces into the query term so each keystroke doesn't
-  // trigger a parquet scan.
-  const [searchInput, setSearchInput] = useState('');
-  const [search, setSearch] = useState('');
+  // trigger a parquet scan. `?q=` seeds the initial term (deep links from
+  // related panels) but isn't written back while typing — the URL params that
+  // round-trip are the whitelisted sort/filter ones in useSourceParams.
+  const searchParams = useSearchParams();
+  const [searchInput, setSearchInput] = useState(() => searchParams.get('q') ?? '');
+  const [search, setSearch] = useState(searchInput);
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput.trim()), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(t);

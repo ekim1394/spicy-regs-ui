@@ -70,6 +70,67 @@ export function buildSourceQuery(
   `;
 }
 
+/**
+ * Unified Agenda entries related to one regulations.gov docket, via the only
+ * machine path between them: the docket's Federal Register documents
+ * (`fr_docket_links`, docket-sorted → cheap) carry RIN arrays, and RINs key
+ * the agenda. Deduped to each RIN's latest agenda edition (the agenda is one
+ * row per RIN *per semiannual edition*). `def` must be the unified-agenda
+ * registry entry — its selectCols shape what the panel renders.
+ */
+export function buildAgendaForDocketQuery(
+  def: SourceDef,
+  docketId: string,
+  baseUrl: string,
+  limit: number,
+): string {
+  return `
+    WITH linked_docs AS (
+      SELECT document_number
+      FROM read_parquet('${baseUrl}/fr_docket_links.parquet')
+      WHERE docket_id = '${sqlStr(docketId)}'
+    ),
+    rins AS (
+      -- No predicate on regulation_id_numbers_json: filtering that column
+      -- makes DuckDB-WASM parse its parquet footer statistics for pushdown,
+      -- which fails with "TProtocolException: Invalid data" (native DuckDB
+      -- reads them fine). NULL/empty arrays unnest to zero rows anyway.
+      SELECT DISTINCT unnest(CAST(json_extract(fr.regulation_id_numbers_json, '$') AS VARCHAR[])) AS rin
+      FROM ${sourceRef('federal_register', baseUrl)} fr
+      WHERE fr.document_number IN (SELECT document_number FROM linked_docs)
+    )
+    SELECT ${def.selectCols}
+    FROM ${sourceRef(def.table, baseUrl)} ua
+    JOIN rins USING (rin)
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY rin ORDER BY agenda_edition DESC) = 1
+    ORDER BY rin
+    LIMIT ${Math.floor(limit)}
+  `;
+}
+
+/**
+ * Recent APA-review suits naming an agency. Court dockets carry no machine
+ * key to the corpus — the defendant agency appears in `case_name` — so this
+ * is a substring match on the agency's FULL name. Callers must pass a real
+ * full name, never a bare code (short codes like "EPA" substring-match
+ * unrelated words — "D-epa-rtment"). `def` must be the court-dockets
+ * registry entry.
+ */
+export function buildLitigationForAgencyQuery(
+  def: SourceDef,
+  agencyName: string,
+  baseUrl: string,
+  limit: number,
+): string {
+  return `
+    SELECT ${def.selectCols}
+    FROM ${sourceRef(def.table, baseUrl)}
+    WHERE case_name ILIKE '%${sqlStr(agencyName)}%'
+    ORDER BY date_filed DESC NULLS LAST, ${def.tiebreak}
+    LIMIT ${Math.floor(limit)}
+  `;
+}
+
 /** One entry of the index-page stats query. */
 export interface StatsEntry {
   table: string;

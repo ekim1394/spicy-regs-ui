@@ -3,9 +3,15 @@
 import { useCallback } from 'react';
 
 import { useDuckDB, R2_BASE_URL } from './context';
-import { ROLLUP_CACHE, LIST_CACHE } from './cachePresets';
-import { buildSourceQuery, buildStatsQuery, type SourceQueryOpts } from '@/lib/sources/query';
-import { SOURCES, FEDERAL_REGISTER_ENTRY } from '@/lib/sources/registry';
+import { ROLLUP_CACHE, DETAIL_CACHE, LIST_CACHE } from './cachePresets';
+import {
+  buildAgendaForDocketQuery,
+  buildLitigationForAgencyQuery,
+  buildSourceQuery,
+  buildStatsQuery,
+  type SourceQueryOpts,
+} from '@/lib/sources/query';
+import { SOURCES, FEDERAL_REGISTER_ENTRY, getSource } from '@/lib/sources/registry';
 import type { SourceDef, SourceRow, SourceStats } from '@/lib/sources/types';
 import { stripQuotes } from '@/lib/utils/fieldFormat';
 
@@ -88,5 +94,37 @@ export function useSourceQueries() {
     return stats;
   }, [runCachedQuery, isReady]);
 
-  return { getSourceRows, getSourceStats, isReady };
+  /**
+   * Unified Agenda entries for one docket, mapped to card models via the
+   * registry (docket → FR documents → RINs → agenda, latest edition per RIN).
+   * Returns [] when the chain has no links — callers fail soft.
+   */
+  const getAgendaForDocket = useCallback(
+    async (docketId: string, limit = 5) => {
+      if (!isReady) throw new Error('DuckDB not ready');
+      const def = getSource('unified-agenda')!;
+      const sql = buildAgendaForDocketQuery(def, docketId, R2_BASE_URL, limit);
+      const rows = await runCachedQuery<Record<string, unknown>>(sql, DETAIL_CACHE);
+      return rows.map(normalizeSourceRow).map(def.toCard);
+    },
+    [runCachedQuery, isReady],
+  );
+
+  /**
+   * Recent APA-review suits whose case name mentions the agency's full name,
+   * mapped to card models via the registry. Callers must pass a real full
+   * name (never a bare agency code — see buildLitigationForAgencyQuery).
+   */
+  const getLitigationForAgency = useCallback(
+    async (agencyName: string, limit = 4) => {
+      if (!isReady) throw new Error('DuckDB not ready');
+      const def = getSource('court-dockets')!;
+      const sql = buildLitigationForAgencyQuery(def, agencyName, R2_BASE_URL, limit);
+      const rows = await runCachedQuery<Record<string, unknown>>(sql, DETAIL_CACHE);
+      return rows.map(normalizeSourceRow).map(def.toCard);
+    },
+    [runCachedQuery, isReady],
+  );
+
+  return { getSourceRows, getSourceStats, getAgendaForDocket, getLitigationForAgency, isReady };
 }

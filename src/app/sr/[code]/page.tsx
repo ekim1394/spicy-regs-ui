@@ -8,6 +8,7 @@ import { LifecyclePanel } from '@/components/lab/LifecyclePanel';
 import { OpenRulemakings } from '@/components/agency/OpenRulemakings';
 import { TopDockets } from '@/components/agency/TopDockets';
 import { AgencyMasthead } from '@/components/agency/AgencyMasthead';
+import { AgencyLitigation } from '@/components/agency/AgencyLitigation';
 import { RelatedAgencies } from '@/components/agency/RelatedAgencies';
 import { ViewAllDocketsCard } from '@/components/agency/ViewAllDocketsCard';
 import { InView } from '@/components/ui/InView';
@@ -39,6 +40,10 @@ export default function AgencyProfilePage() {
         <OpenRulemakings agencyCode={agencyCode} />
         <TopDockets agencyCode={agencyCode} />
       </div>
+
+      {/* 3.5 — Oversight: recent APA suits naming the agency (fail-soft;
+          renders nothing when the litigation corpus has no name match). */}
+      <AgencyLitigation agencyCode={agencyCode} />
 
       {/* 4 — Interpretive data viz. Deferred until scrolled near: each panel's
           mount fires a full documents.parquet scan, so the masthead + open/top
