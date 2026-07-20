@@ -6,6 +6,8 @@ import { RegulationsDataTypes } from "@/lib/db/models";
 import { TOPIC_MAPPINGS, type TopicKey } from "@/lib/feedFilters";
 import type { FederalRegisterDoc, FRFilters } from "@/lib/fr/types";
 import { stripQuotes } from "@/lib/utils/fieldFormat";
+import { sqlStr } from "./sql";
+import { ROLLUP_CACHE, DETAIL_CACHE, LIST_CACHE } from "./cachePresets";
 import {
   sqlDisplayClean,
   sqlStripContacts,
@@ -225,10 +227,6 @@ const FR_SELECT_COLS = `
   executive_order_number
 `;
 
-/** SQL escape: replace ' with ''. */
-function sqlStr(s: string): string {
-  return s.replace(/'/g, "''");
-}
 
 /**
  * Display/analysis body for a comment. Falls back to the extracted attachment
@@ -259,27 +257,6 @@ function sqlCommentWindowOpen(open: boolean): string {
 /**
  * Hook that provides data fetching via DuckDB-WASM + Parquet on R2.
  */
-/**
- * Cache preset for whole-dataset rollups that are identical for every viewer
- * and only change when the ETL refreshes (roughly daily). Served from
- * IndexedDB across reloads; the 6h TTL bounds staleness.
- */
-const ROLLUP_CACHE = { ttlMs: 6 * 60 * 60 * 1000, persist: true } as const;
-
-/**
- * Cache preset for per-entity detail reads (one docket's row, its document
- * list, its comment counts). Stable within a session — the underlying files
- * change roughly daily — but keyed per entity, so in-memory only to keep
- * IndexedDB from accumulating one entry per docket ever visited.
- */
-const DETAIL_CACHE = { ttlMs: 30 * 60 * 1000 } as const;
-
-/**
- * Cache preset for filtered/paginated list reads (feed variants, FR browse).
- * Short enough that filter exploration stays fresh, long enough that
- * back-navigation and re-renders don't re-scan a multi-MB file.
- */
-const LIST_CACHE = { ttlMs: 10 * 60 * 1000 } as const;
 
 export function useDuckDBService() {
   const { runQuery, runCachedQuery, isReady } = useDuckDB();

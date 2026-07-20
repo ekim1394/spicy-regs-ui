@@ -12,6 +12,7 @@ import { APP_FRAME } from "./ui/appFrame";
 const NAV_ITEMS = [
   { href: "/feed", label: "Feed" },
   { href: "/agencies", label: "Agencies" },
+  { href: "/sources", label: "Sources" },
 ];
 
 export function Header() {
@@ -36,14 +37,15 @@ export function Header() {
           </div>
 
           {/* Search — centered */}
-          <SearchInput className="w-full max-w-md" />
+          <SearchInput className="w-full max-w-md min-w-0" />
 
           {/* Navigation */}
           <nav className="flex-1 flex items-center justify-end gap-0.5">
             {NAV_ITEMS.map((item) => {
               const isActive =
                 pathname === item.href ||
-                (item.href === '/agencies' && pathname?.startsWith('/sr'));
+                (item.href === '/agencies' && pathname?.startsWith('/sr')) ||
+                (item.href === '/sources' && pathname?.startsWith('/sources'));
               return (
                 <Link
                   key={item.href}

@@ -8,6 +8,7 @@ import { APP_FRAME } from "./ui/appFrame";
 const FOOTER_LINKS = [
   { href: "/feed", label: "Feed" },
   { href: "/agencies", label: "Agencies" },
+  { href: "/sources", label: "Sources" },
   { href: "/about", label: "About" },
   { href: "/lab", label: "Lab" },
 ];
