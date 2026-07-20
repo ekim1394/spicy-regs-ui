@@ -1,6 +1,12 @@
 import { describe, it, expect } from 'vitest';
 
-import { buildSourceQuery, buildStatsQuery, sourceRef } from './query';
+import {
+  buildAgendaForDocketQuery,
+  buildLitigationForAgencyQuery,
+  buildSourceQuery,
+  buildStatsQuery,
+  sourceRef,
+} from './query';
 import { SOURCES, getSource } from './registry';
 
 const BASE = 'https://r2.example.dev';
@@ -87,6 +93,47 @@ describe('buildSourceQuery', () => {
   it('floors non-integer limit/offset', () => {
     const sql = buildSourceQuery(bills, BASE, { limit: 20.9, offset: 10.5 });
     expect(sql).toContain('LIMIT 20 OFFSET 10');
+  });
+});
+
+describe('buildAgendaForDocketQuery', () => {
+  const agenda = getSource('unified-agenda')!;
+
+  it('chains fr_docket_links → federal_register RINs → latest agenda edition', () => {
+    const sql = buildAgendaForDocketQuery(agenda, 'EPA-HQ-OAR-2026-0728', BASE, 5);
+    expect(sql).toContain(`read_parquet('${BASE}/fr_docket_links.parquet')`);
+    expect(sql).toContain("WHERE docket_id = 'EPA-HQ-OAR-2026-0728'");
+    expect(sql).toContain('regulation_id_numbers_json');
+    expect(sql).toContain(`read_parquet('${BASE}/unified_agenda.parquet')`);
+    expect(sql).toContain('QUALIFY ROW_NUMBER() OVER (PARTITION BY rin ORDER BY agenda_edition DESC) = 1');
+    expect(sql).toContain('LIMIT 5');
+  });
+
+  it('escapes quotes in the docket id', () => {
+    const sql = buildAgendaForDocketQuery(agenda, "EPA'; DROP TABLE x --", BASE, 5);
+    expect(sql).toContain("EPA''; DROP TABLE x --");
+    expect(sql).not.toContain("EPA';");
+  });
+});
+
+describe('buildLitigationForAgencyQuery', () => {
+  const courtsDef = getSource('court-dockets')!;
+
+  it('substring-matches the full agency name, newest filings first', () => {
+    const sql = buildLitigationForAgencyQuery(
+      courtsDef,
+      'Environmental Protection Agency',
+      BASE,
+      4,
+    );
+    expect(sql).toContain("case_name ILIKE '%Environmental Protection Agency%'");
+    expect(sql).toContain('ORDER BY date_filed DESC NULLS LAST, cl_docket_id ASC');
+    expect(sql).toContain('LIMIT 4');
+  });
+
+  it('escapes quotes in the agency name', () => {
+    const sql = buildLitigationForAgencyQuery(courtsDef, "O'Brien Agency", BASE, 4);
+    expect(sql).toContain("O''Brien Agency");
   });
 });
 

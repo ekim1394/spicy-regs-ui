@@ -15,6 +15,7 @@ import { DocumentList } from '@/components/feed/DocumentList';
 import { ThreadedComments } from '@/components/feed/ThreadedComments';
 import { RelatedDockets } from '@/components/feed/RelatedDockets';
 import { RelatedFederalRegister } from '@/components/feed/RelatedFederalRegister';
+import { RelatedUnifiedAgenda } from '@/components/docket/RelatedUnifiedAgenda';
 import { AgencyIdentity } from '@/components/agency/AgencyIdentity';
 import { useDuckDBService } from '@/lib/duckdb/useDuckDBService';
 import { useAsyncData } from '@/lib/hooks/useAsyncData';
@@ -197,6 +198,8 @@ function DocketDetailInner() {
               </section>
 
               <RelatedFederalRegister docketId={docketId} />
+
+              <RelatedUnifiedAgenda docketId={docketId} />
             </TabsContent>
 
             {/* Documents — the tab itself is the heading, so the panel carries
