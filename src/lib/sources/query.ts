@@ -85,19 +85,15 @@ export function buildAgendaForDocketQuery(
   limit: number,
 ): string {
   return `
-    WITH linked_docs AS (
-      SELECT document_number
-      FROM read_parquet('${baseUrl}/fr_docket_links.parquet')
-      WHERE docket_id = '${sqlStr(docketId)}'
-    ),
-    rins AS (
+    WITH rins AS (
       -- No predicate on regulation_id_numbers_json: filtering that column
       -- makes DuckDB-WASM parse its parquet footer statistics for pushdown,
       -- which fails with "TProtocolException: Invalid data" (native DuckDB
-      -- reads them fine). NULL/empty arrays unnest to zero rows anyway.
-      SELECT DISTINCT unnest(CAST(json_extract(fr.regulation_id_numbers_json, '$') AS VARCHAR[])) AS rin
-      FROM ${sourceRef('federal_register', baseUrl)} fr
-      WHERE fr.document_number IN (SELECT document_number FROM linked_docs)
+      -- reads them fine). Filter the docket-sorted link rows first, then
+      -- project/unnest the JSON column; NULL/empty arrays yield zero rows.
+      SELECT DISTINCT unnest(CAST(json_extract(regulation_id_numbers_json, '$') AS VARCHAR[])) AS rin
+      FROM read_parquet('${baseUrl}/fr_docket_links.parquet')
+      WHERE docket_id = '${sqlStr(docketId)}'
     )
     SELECT ${def.selectCols}
     FROM ${sourceRef(def.table, baseUrl)} ua

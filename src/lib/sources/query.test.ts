@@ -99,11 +99,12 @@ describe('buildSourceQuery', () => {
 describe('buildAgendaForDocketQuery', () => {
   const agenda = getSource('unified-agenda')!;
 
-  it('chains fr_docket_links → federal_register RINs → latest agenda edition', () => {
+  it('chains fr_docket_links RINs → latest agenda edition without scanning Federal Register', () => {
     const sql = buildAgendaForDocketQuery(agenda, 'EPA-HQ-OAR-2026-0728', BASE, 5);
     expect(sql).toContain(`read_parquet('${BASE}/fr_docket_links.parquet')`);
     expect(sql).toContain("WHERE docket_id = 'EPA-HQ-OAR-2026-0728'");
     expect(sql).toContain('regulation_id_numbers_json');
+    expect(sql).not.toContain(`read_parquet('${BASE}/federal_register.parquet')`);
     expect(sql).toContain(`read_parquet('${BASE}/unified_agenda.parquet')`);
     expect(sql).toContain('QUALIFY ROW_NUMBER() OVER (PARTITION BY rin ORDER BY agenda_edition DESC) = 1');
     expect(sql).toContain('LIMIT 5');

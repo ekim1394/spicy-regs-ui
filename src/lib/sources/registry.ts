@@ -64,7 +64,7 @@ export const FEDERAL_REGISTER_ENTRY = {
   provider: 'federalregister.gov',
   icon: Newspaper as LucideIcon,
   href: '/federal-register',
-  recencyExpr: 'MAX(publication_date)',
+  recencyExpr: 'CAST(MAX(TRY_CAST(publication_date AS DATE)) AS VARCHAR)',
 };
 
 /**
@@ -182,7 +182,7 @@ export const SOURCES: SourceDef[] = [
         ],
       },
     ],
-    recencyExpr: 'MAX(latest_action_date)',
+    recencyExpr: 'CAST(MAX(TRY_CAST(latest_action_date AS DATE)) AS VARCHAR)',
     toCard: (row) => ({
       id: row.bill_id ?? '',
       chips: [
@@ -228,7 +228,7 @@ export const SOURCES: SourceDef[] = [
       { key: 'recent', label: 'Recently modified', orderBy: 'last_modified DESC NULLS LAST' },
     ],
     filters: [],
-    recencyExpr: 'MAX(last_modified)',
+    recencyExpr: 'CAST(MAX(TRY_CAST(last_modified AS TIMESTAMP)) AS VARCHAR)',
     toCard: (row) => ({
       id: row.granule_id ?? '',
       chips: [
@@ -265,7 +265,7 @@ export const SOURCES: SourceDef[] = [
       { key: 'name', label: 'Name A–Z', orderBy: 'legal_business_name ASC' },
     ],
     filters: [],
-    recencyExpr: 'MAX(registration_date)',
+    recencyExpr: 'CAST(MAX(TRY_CAST(registration_date AS DATE)) AS VARCHAR)',
     toCard: (row) => {
       const location = [row.city, row.state].filter(Boolean).join(', ');
       return {
@@ -335,7 +335,7 @@ export const SOURCES: SourceDef[] = [
         ],
       },
     ],
-    recencyExpr: 'MAX(dt_posted)',
+    recencyExpr: 'CAST(MAX(TRY_CAST(dt_posted AS TIMESTAMP)) AS VARCHAR)',
     toCard: (row) => {
       // A filing reports income (firms) or expenses (self-filers), rarely both.
       const money = formatUSDCompact(row.income) ?? formatUSDCompact(row.expenses);
@@ -394,7 +394,7 @@ export const SOURCES: SourceDef[] = [
         ],
       },
     ],
-    recencyExpr: 'MAX(last_file_date)',
+    recencyExpr: 'CAST(MAX(TRY_CAST(last_file_date AS DATE)) AS VARCHAR)',
     toCard: (row) => ({
       id: row.committee_id ?? '',
       chips: [
@@ -498,7 +498,7 @@ export const SOURCES: SourceDef[] = [
         ],
       },
     ],
-    recencyExpr: 'MAX(date_filed)',
+    recencyExpr: 'CAST(MAX(TRY_CAST(date_filed AS DATE)) AS VARCHAR)',
     toCard: (row) => ({
       id: row.cl_docket_id ?? '',
       chips: [
@@ -534,7 +534,7 @@ export const SOURCES: SourceDef[] = [
       { key: 'recent', label: 'Recently published', orderBy: 'published_date DESC NULLS LAST' },
     ],
     filters: [],
-    recencyExpr: 'MAX(published_date)',
+    recencyExpr: 'CAST(MAX(TRY_CAST(published_date AS DATE)) AS VARCHAR)',
     toCard: (row) => ({
       id: row.report_id ?? '',
       chips: [
@@ -564,7 +564,7 @@ export const SOURCES: SourceDef[] = [
       { key: 'recent', label: 'Recently published', orderBy: 'published_date DESC NULLS LAST' },
     ],
     filters: [],
-    recencyExpr: 'MAX(published_date)',
+    recencyExpr: 'CAST(MAX(TRY_CAST(published_date AS DATE)) AS VARCHAR)',
     toCard: (row) => ({
       id: row.report_id ?? '',
       chips: [
