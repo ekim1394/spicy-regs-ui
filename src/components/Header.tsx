@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Flame } from 'lucide-react';
+import { Building2, Database, Flame, List } from 'lucide-react';
 
 import { SearchInput } from "./SearchInput";
 import { APP_FRAME } from "./ui/appFrame";
@@ -10,9 +10,9 @@ import { APP_FRAME } from "./ui/appFrame";
 // Primary nav is deliberately minimal. Federal Register (now folded into
 // the feed via the FR toggle), About, and Lab stay reachable by URL only.
 const NAV_ITEMS = [
-  { href: "/feed", label: "Feed" },
-  { href: "/agencies", label: "Agencies" },
-  { href: "/sources", label: "Sources" },
+  { href: "/feed", label: "Feed", icon: List },
+  { href: "/agencies", label: "Agencies", icon: Building2 },
+  { href: "/sources", label: "Sources", icon: Database },
 ];
 
 export function Header() {
@@ -42,6 +42,7 @@ export function Header() {
           {/* Navigation */}
           <nav className="flex-1 flex items-center justify-end gap-0.5">
             {NAV_ITEMS.map((item) => {
+              const Icon = item.icon;
               const isActive =
                 pathname === item.href ||
                 (item.href === '/agencies' && pathname?.startsWith('/sr')) ||
@@ -50,13 +51,15 @@ export function Header() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  aria-label={item.label}
+                  className={`px-2 sm:px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     isActive
                       ? "bg-[var(--accent-primary)]/10 text-[var(--accent-primary)]"
                       : "text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface-elevated)]"
                   }`}
                 >
-                  {item.label}
+                  <Icon size={15} className="sm:hidden" aria-hidden="true" />
+                  <span className="hidden sm:inline">{item.label}</span>
                 </Link>
               );
             })}
