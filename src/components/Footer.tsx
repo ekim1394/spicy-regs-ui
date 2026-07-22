@@ -10,6 +10,7 @@ const FOOTER_LINKS = [
   { href: "/agencies", label: "Agencies" },
   { href: "/sources", label: "Sources" },
   { href: "/about", label: "About" },
+  { href: "/changelog", label: "Changelog" },
   { href: "/lab", label: "Lab" },
 ];
 
